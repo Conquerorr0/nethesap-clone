@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nethesap.Domain.Entities;
-using Nethesap.Domain.Repositories;
+using Nethesap.Domain.IRepositories;
 using Nethesap.Infrastructure.Data;
 using System;
 using System.Collections.Generic;

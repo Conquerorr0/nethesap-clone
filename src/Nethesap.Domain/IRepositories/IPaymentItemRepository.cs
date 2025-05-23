@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Nethesap.Domain.Entities;
 
-namespace Nethesap.Domain.Repositories
+// Ödeme kalemleri için özel repository interface'i. Ödeme detayları, ürün bazlı satış analizi ve tarih aralığına göre satış raporları gibi detaylı sorguları tanımlar.
+// IRepository<PaymentItem>'dan kalıtım alarak temel CRUD operasyonlarını da içerir.
+namespace Nethesap.Domain.IRepositories
 {
     public interface IPaymentItemRepository : IRepository<PaymentItem>
     {

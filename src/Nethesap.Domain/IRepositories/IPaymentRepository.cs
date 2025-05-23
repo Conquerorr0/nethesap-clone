@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Nethesap.Domain.Entities;
 
-namespace Nethesap.Domain.Repositories
+// Ödeme işlemleri için özel repository interface'i. Müşteri bazlı ödemeler, tarih aralığına göre ödemeler ve toplam tutar hesaplama gibi ödeme işlemlerini tanımlar.
+// IRepository<Payment>'dan kalıtım alarak temel CRUD operasyonlarını da içerir.
+namespace Nethesap.Domain.IRepositories
 {
     public interface IPaymentRepository : IRepository<Payment>
     {

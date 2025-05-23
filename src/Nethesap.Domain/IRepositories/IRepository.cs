@@ -4,7 +4,9 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Nethesap.Domain.Entities;
 
-namespace Nethesap.Domain.Repositories
+// Generic repository pattern için temel interface tanımı. Tüm entity'ler için ortak CRUD operasyonlarını ve temel sorgulama metodlarını içerir.
+// Asenkron programlama yaklaşımı kullanılarak performans optimizasyonu sağlanmıştır.
+namespace Nethesap.Domain.IRepositories
 {
     public interface IRepository<T> where T : BaseEntity
     {
@@ -14,9 +16,9 @@ namespace Nethesap.Domain.Repositories
         Task<T> SingleOrDefaultAsync(Expression<Func<T, bool>> predicate);
         Task AddAsync(T entity);
         Task AddRangeAsync(IEnumerable<T> entities);
-        void Update(T entity);
-        void Remove(T entity);
-        void RemoveRange(IEnumerable<T> entities);
+        Task UpdateAsync(T entity);
+        Task RemoveAsync(T entity);
+        Task RemoveRangeAsync(IEnumerable<T> entities);
         Task<bool> AnyAsync(Expression<Func<T, bool>> predicate);
         Task<int> CountAsync(Expression<Func<T, bool>> predicate);
     }
