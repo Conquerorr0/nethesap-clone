@@ -8,4 +8,13 @@ public partial class CustomersView : UserControl
     {
         InitializeComponent();
     }
+}
+
+// Design-time data class
+public class CustomerDesignData
+{
+    public string FirstName { get; set; }
+    public string LastName { get; set; }
+    public string Phone { get; set; }
+    public decimal Balance { get; set; }
 } 

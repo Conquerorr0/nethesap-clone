@@ -8,4 +8,12 @@ public partial class DashboardView : UserControl
     {
         InitializeComponent();
     }
+}
+
+// Design-time data class
+public class DashboardDesignData
+{
+    public int TotalCustomers { get; set; }
+    public int TotalProducts { get; set; }
+    public int TotalSales { get; set; }
 } 

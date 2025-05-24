@@ -1,16 +1,50 @@
 <UserControl x:Class="Nethesap.UI.Views.ProductsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:local="clr-namespace:Nethesap.UI.Views"
-             mc:Ignorable="d" 
+             mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
-    <Grid>
-        <TextBlock Text="Ürünler" 
-                   Style="{StaticResource MaterialDesignHeadline3TextBlock}"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"/>
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <DockPanel Grid.Row="0" Margin="0 0 0 16">
+            <Button DockPanel.Dock="Right"
+                    Command="{Binding AddProductCommand}"
+                    Style="{StaticResource MaterialDesignFloatingActionButton}"
+                    ToolTip="Yeni Ürün Ekle">
+                <materialDesign:PackIcon Kind="Plus" Height="24" Width="24"/>
+            </Button>
+            <TextBlock Text="Ürünler"
+                       Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                       VerticalAlignment="Center"/>
+        </DockPanel>
+        <DataGrid Grid.Row="1"
+                  ItemsSource="{Binding Products}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  materialDesign:DataGridAssist.CellPadding="13 8 8 8"
+                  materialDesign:DataGridAssist.ColumnHeaderPadding="8">
+            <d:DataGrid.ItemsSource>
+                <x:Array Type="local:ProductDesignData">
+                    <local:ProductDesignData Name="Laptop" Description="Oyun Bilgisayarı" Barcode="1234567890" Category="Elektronik" Price="25000"/>
+                    <local:ProductDesignData Name="Telefon" Description="Akıllı Telefon" Barcode="0987654321" Category="Elektronik" Price="15000"/>
+                    <local:ProductDesignData Name="Klavye" Description="Mekanik Klavye" Barcode="1122334455" Category="Aksesuar" Price="1200"/>
+                </x:Array>
+            </d:DataGrid.ItemsSource>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Ürün Adı" Binding="{Binding Name}" Width="*"/>
+                <DataGridTextColumn Header="Açıklama" Binding="{Binding Description}" Width="2*"/>
+                <DataGridTextColumn Header="Barkod" Binding="{Binding Barcode}" Width="*"/>
+                <DataGridTextColumn Header="Kategori" Binding="{Binding Category}" Width="*"/>
+                <DataGridTextColumn Header="Fiyat" Binding="{Binding Price, StringFormat={}{0:C2}}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
     </Grid>
 </UserControl> 
