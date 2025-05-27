@@ -1,0 +1,22 @@
+﻿<Application x:Class="Nethesap.UI.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Nethesap.UI"
+             xmlns:converters="clr-namespace:Nethesap.UI.Converters"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Light.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Defaults.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/MaterialDesignColors;component/Themes/Recommended/Primary/MaterialDesignColor.DeepPurple.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/MaterialDesignColors;component/Themes/Recommended/Accent/MaterialDesignColor.Purple.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            
+            <!-- Converters -->
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <converters:MathConverter x:Key="MathConverter" />
+            
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
