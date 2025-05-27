@@ -4,36 +4,181 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:materialDesignShadow="clr-namespace:MaterialDesignThemes.Wpf;assembly=MaterialDesignThemes.Wpf"
+             xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
              xmlns:local="clr-namespace:Nethesap.UI.Views"
              mc:Ignorable="d"
-             d:DesignHeight="450" d:DesignWidth="800">
-    <Grid Margin="16">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-        
-        <materialDesign:Card Grid.Column="0" Margin="8" Padding="16" Background="{DynamicResource MaterialDesignPaper}" UniformCornerRadius="8">
-            <StackPanel>
-                <TextBlock Text="Toplam Müşteri" Style="{StaticResource MaterialDesignSubtitle1TextBlock}"/>
-                <TextBlock Text="{Binding TotalCustomers, FallbackValue=120}" FontSize="32" FontWeight="Bold"/>
+             d:DesignHeight="800" d:DesignWidth="1200">
+
+    <ScrollViewer>
+        <Grid Margin="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- Period Selector -->
+                <RowDefinition Height="Auto"/> <!-- Summary Cards -->
+                <RowDefinition Height="Auto"/> <!-- Chart -->
+                <RowDefinition Height="Auto"/> <!-- Transactions -->
+            </Grid.RowDefinitions>
+
+            <!-- Period Selector -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+                <TextBlock Text="Finansal Özet" 
+                         Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                         VerticalAlignment="Center"/>
+                <ComboBox Margin="16,0,0,0" 
+                         SelectedIndex="{Binding SelectedPeriodIndex}"
+                         materialDesign:ColorZoneAssist.Mode="Standard"
+                         Width="120">
+                    <ComboBoxItem Content="Son 1 Ay"/>
+                    <ComboBoxItem Content="Son 3 Ay"/>
+                    <ComboBoxItem Content="Son 6 Ay"/>
+                </ComboBox>
             </StackPanel>
-        </materialDesign:Card>
-        
-        <materialDesign:Card Grid.Column="1" Margin="8" Padding="16" Background="{DynamicResource MaterialDesignPaper}" UniformCornerRadius="8">
-            <StackPanel>
-                <TextBlock Text="Toplam Ürün" Style="{StaticResource MaterialDesignSubtitle1TextBlock}"/>
-                <TextBlock Text="{Binding TotalProducts, FallbackValue=45}" FontSize="32" FontWeight="Bold"/>
-            </StackPanel>
-        </materialDesign:Card>
-        
-        <materialDesign:Card Grid.Column="2" Margin="8" Padding="16" Background="{DynamicResource MaterialDesignPaper}" UniformCornerRadius="8">
-            <StackPanel>
-                <TextBlock Text="Toplam Satış" Style="{StaticResource MaterialDesignSubtitle1TextBlock}"/>
-                <TextBlock Text="{Binding TotalSales, FallbackValue=320}" FontSize="32" FontWeight="Bold"/>
-            </StackPanel>
-        </materialDesign:Card>
-    </Grid>
+
+            <!-- Summary Cards -->
+            <Grid Grid.Row="1" Margin="0,0,0,24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <materialDesign:Card Grid.Column="0" Margin="4,8,8,8" 
+                                   Background="#E8F5E9"
+                                   UniformCornerRadius="8">
+                    <StackPanel Margin="16">
+                        <TextBlock Text="Genel Bakiye" 
+                                 Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
+                                 Foreground="#2E7D32"/>
+                        <TextBlock Text="{Binding TotalBalance, StringFormat={}{0:C2}}" 
+                                 FontSize="24" 
+                                 FontWeight="Bold"
+                                 Foreground="#1B5E20"/>
+                        <TextBlock Text="Son güncelleme: Bugün"
+                                 Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                 Foreground="#43A047"/>
+                    </StackPanel>
+                </materialDesign:Card>
+
+                <materialDesign:Card Grid.Column="1" Margin="4,8,8,8" 
+                                   Background="#E3F2FD"
+                                   UniformCornerRadius="8">
+                    <StackPanel Margin="16">
+                        <TextBlock Text="Toplam Alacak" 
+                                 Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
+                                 Foreground="#1976D2"/>
+                        <TextBlock Text="{Binding TotalReceivables, StringFormat={}{0:C2}}"
+                                 FontSize="24" 
+                                 FontWeight="Bold"
+                                 Foreground="#0D47A1"/>
+                        <TextBlock Text="14 açık hesap"
+                                 Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                 Foreground="#1E88E5"/>
+                    </StackPanel>
+                </materialDesign:Card>
+
+                <materialDesign:Card Grid.Column="2" Margin="4,8,8,8" 
+                                   Background="#FBE9E7"
+                                   UniformCornerRadius="8">
+                    <StackPanel Margin="16">
+                        <TextBlock Text="Toplam Borç" 
+                                 Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
+                                 Foreground="#D84315"/>
+                        <TextBlock Text="{Binding TotalPayables, StringFormat={}{0:C2}}"
+                                 FontSize="24" 
+                                 FontWeight="Bold"
+                                 Foreground="#BF360C"/>
+                        <TextBlock Text="7 açık hesap"
+                                 Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                 Foreground="#E64A19"/>
+                    </StackPanel>
+                </materialDesign:Card>
+            </Grid>
+
+            <!-- Chart -->
+            <materialDesign:Card Grid.Row="2" Margin="0,0,0,24" UniformCornerRadius="8">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="300"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" 
+                             Text="Finansal Trend"
+                             Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
+                             Margin="0,0,0,16"/>
+
+                    <lvc:CartesianChart Grid.Row="1" Series="{Binding ChartSeries}">
+                        <lvc:CartesianChart.AxisX>
+                            <lvc:Axis Title="Tarih" Labels="{Binding ChartLabels}"/>
+                        </lvc:CartesianChart.AxisX>
+                        <lvc:CartesianChart.AxisY>
+                            <lvc:Axis Title="Tutar (₺)" LabelFormatter="{Binding ChartFormatter}"/>
+                        </lvc:CartesianChart.AxisY>
+                    </lvc:CartesianChart>
+                </Grid>
+            </materialDesign:Card>
+
+            <!-- Transactions List -->
+            <materialDesign:Card Grid.Row="3" UniformCornerRadius="8">
+                <DockPanel Margin="16">
+                    <TextBlock DockPanel.Dock="Top" 
+                             Text="Son İşlemler"
+                             Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
+                             Margin="0,0,0,16"/>
+
+                    <ListView ItemsSource="{Binding RecentTransactions}" 
+                            MaxHeight="300"
+                            ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <materialDesign:Card Margin="2" 
+                                                   UniformCornerRadius="4"
+                                                   HorizontalAlignment="Stretch">
+                                    <Grid Margin="8" HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <Border Grid.Column="0" 
+                                                Width="40" 
+                                                Height="40" 
+                                                CornerRadius="20"
+                                                Background="{Binding IsIncome, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#E8F5E9,#FBE9E7'}">
+                                            <materialDesign:PackIcon Kind="{Binding Icon}"
+                                                                 Width="24"
+                                                                 Height="24"
+                                                                 VerticalAlignment="Center"
+                                                                 HorizontalAlignment="Center"
+                                                                 Foreground="{Binding IsIncome, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#2E7D32,#D84315'}"/>
+                                        </Border>
+
+                                        <StackPanel Grid.Column="1" Margin="16,0,0,0">
+                                            <TextBlock Text="{Binding Description}"
+                                                     Style="{StaticResource MaterialDesignBody1TextBlock}"/>
+                                            <TextBlock Text="{Binding Date, StringFormat={}{0:d MMMM yyyy}}"
+                                                     Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                                     Opacity="0.7"/>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="2"
+                                                 Text="{Binding Amount, StringFormat={}{0:C2}}"
+                                                 Style="{StaticResource MaterialDesignBody1TextBlock}"
+                                                 FontWeight="Medium"
+                                                 Foreground="{Binding IsIncome, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#2E7D32,#D84315'}"
+                                                 VerticalAlignment="Center"/>
+                                    </Grid>
+                                </materialDesign:Card>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </DockPanel>
+            </materialDesign:Card>
+        </Grid>
+    </ScrollViewer>
 </UserControl> 
