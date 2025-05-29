@@ -1,0 +1,200 @@
+<UserControl x:Class="Nethesap.UI.Views.CustomerDetailView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:local="clr-namespace:Nethesap.UI.Views"
+             xmlns:converters="clr-namespace:Nethesap.UI.Converters"
+             mc:Ignorable="d" 
+             d:DesignHeight="700" d:DesignWidth="1000">
+    
+    <UserControl.Resources>
+        <converters:BalanceToColorConverter x:Key="BalanceToColorConverter"/>
+    </UserControl.Resources>
+    
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Header with Back Button -->
+        <DockPanel Grid.Row="0" Margin="0 0 0 16">
+            <Button DockPanel.Dock="Left"
+                    Command="{Binding BackCommand}"
+                    Style="{StaticResource MaterialDesignFlatButton}">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ArrowLeft" Height="24" Width="24" VerticalAlignment="Center"/>
+                    <TextBlock Text="Geri" Margin="8 0 0 0" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            
+            <TextBlock Text="{Binding Customer.FirstName, StringFormat='{}{0} '}"
+                       Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Center">
+                <TextBlock.Inlines>
+                    <Run Text="{Binding Customer.LastName}"/>
+                </TextBlock.Inlines>
+            </TextBlock>
+        </DockPanel>
+        
+        <!-- Customer Info Card -->
+        <materialDesign:Card Grid.Row="1" Margin="0 0 0 16" Padding="16" UniformCornerRadius="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Customer Details -->
+                <StackPanel Grid.Column="0">
+                    <StackPanel Orientation="Horizontal" Margin="0 0 0 8">
+                        <materialDesign:PackIcon Kind="Phone" VerticalAlignment="Center" Margin="0 0 8 0"/>
+                        <TextBlock Text="{Binding Customer.Phone}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <StackPanel Orientation="Horizontal" Margin="0 0 0 8">
+                        <materialDesign:PackIcon Kind="Email" VerticalAlignment="Center" Margin="0 0 8 0"/>
+                        <TextBlock Text="{Binding Customer.Email}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Home" VerticalAlignment="Center" Margin="0 0 8 0"/>
+                        <TextBlock Text="{Binding Customer.Address}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+                
+                <!-- Balance Info -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <TextBlock Text="Bakiye Durumu" 
+                             HorizontalAlignment="Center" 
+                             FontSize="12" 
+                             Opacity="0.7"/>
+                    <TextBlock Text="{Binding Customer.Balance, StringFormat={}{0:C2}}" 
+                             FontWeight="Bold" 
+                             FontSize="24"
+                             HorizontalAlignment="Center"
+                             Foreground="{Binding Customer.Balance, Converter={StaticResource BalanceToColorConverter}}"/>
+                </StackPanel>
+            </Grid>
+        </materialDesign:Card>
+        
+        <!-- Filter Options -->
+        <Grid Grid.Row="2" Margin="0 0 0 16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- Search Box -->
+            <materialDesign:Card Grid.Column="0" Padding="8" Margin="0 0 16 0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <materialDesign:PackIcon Kind="Search" 
+                                           Grid.Column="0" 
+                                           VerticalAlignment="Center"
+                                           Margin="8 0 8 0"/>
+                    
+                    <TextBox Grid.Column="1"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             materialDesign:HintAssist.Hint="İşlem ara..."
+                             Style="{StaticResource MaterialDesignTextBox}"
+                             VerticalAlignment="Center"
+                             Margin="0 8 8 8"
+                             BorderThickness="0"/>
+                </Grid>
+            </materialDesign:Card>
+            
+            <!-- Date Range Pickers -->
+            <DatePicker Grid.Column="1" 
+                       SelectedDate="{Binding StartDate}"
+                       materialDesign:HintAssist.Hint="Başlangıç Tarihi"
+                       Style="{StaticResource MaterialDesignOutlinedDatePicker}"
+                       Width="150"
+                       Margin="0 0 16 0"/>
+            
+            <DatePicker Grid.Column="2" 
+                       SelectedDate="{Binding EndDate}"
+                       materialDesign:HintAssist.Hint="Bitiş Tarihi"
+                       Style="{StaticResource MaterialDesignOutlinedDatePicker}"
+                       Width="150"/>
+        </Grid>
+        
+        <!-- Transaction List -->
+        <materialDesign:Card Grid.Row="3" UniformCornerRadius="8">
+            <DataGrid ItemsSource="{Binding FilteredTransactions}"
+                     AutoGenerateColumns="False"
+                     IsReadOnly="True"
+                     CanUserAddRows="False"
+                     CanUserDeleteRows="False"
+                     materialDesign:DataGridAssist.CellPadding="13 8 8 8"
+                     materialDesign:DataGridAssist.ColumnHeaderPadding="8">
+                
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Tarih" 
+                                      Binding="{Binding TransactionDate, StringFormat={}{0:dd.MM.yyyy HH:mm}}"
+                                      Width="150"/>
+                    
+                    <DataGridTextColumn Header="İşlem Tipi" 
+                                      Binding="{Binding Type}"
+                                      Width="100">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Type}" Value="Debt">
+                                        <Setter Property="Text" Value="Borç"/>
+                                        <Setter Property="Foreground" Value="#C62828"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Type}" Value="Credit">
+                                        <Setter Property="Text" Value="Alacak"/>
+                                        <Setter Property="Foreground" Value="#2E7D32"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    
+                    <DataGridTextColumn Header="Tutar" 
+                                      Binding="{Binding Amount, StringFormat={}{0:C2}}"
+                                      Width="120"/>
+                    
+                    <DataGridTextColumn Header="Açıklama" 
+                                      Binding="{Binding Description}"
+                                      Width="*"/>
+                </DataGrid.Columns>
+                
+                <!-- Empty state message -->
+                <DataGrid.Style>
+                    <Style TargetType="DataGrid" BasedOn="{StaticResource MaterialDesignDataGrid}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding FilteredTransactions.Count}" Value="0">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate>
+                                            <Grid>
+                                                <TextBlock Text="Bu tarih aralığında işlem bulunamadı."
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         FontSize="16"
+                                                         Opacity="0.7"/>
+                                            </Grid>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.Style>
+            </DataGrid>
+        </materialDesign:Card>
+    </Grid>
+</UserControl> 

@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.Windows.Controls;
+using Nethesap.UI.ViewModels;
 
 namespace Nethesap.UI.Views;
 
@@ -7,6 +9,11 @@ public partial class ProductsView : UserControl
     public ProductsView()
     {
         InitializeComponent();
+        
+        if (DesignerProperties.GetIsInDesignMode(this) == false && DataContext == null)
+        {
+            DataContext = new ProductsViewModel();
+        }
     }
 }
 

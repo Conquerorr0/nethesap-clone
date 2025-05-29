@@ -5,20 +5,28 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:local="clr-namespace:Nethesap.UI.Views"
+             xmlns:converters="clr-namespace:Nethesap.UI.Converters"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
+             d:DesignHeight="700" d:DesignWidth="1000">
+
+    <UserControl.Resources>
+        <converters:BalanceToColorConverter x:Key="BalanceToColorConverter"/>
+    </UserControl.Resources>
     
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Header with Add Button -->
+        <!-- Header with Title and Add Button -->
         <DockPanel Grid.Row="0" Margin="0 0 0 16">
             <Button DockPanel.Dock="Right"
-                    Command="{Binding AddCommand}"
+                    Command="{Binding AddCustomerCommand}"
                     Style="{StaticResource MaterialDesignFloatingActionButton}"
+                    Background="{StaticResource PrimaryHueDarkBrush}"
+                    BorderBrush="{StaticResource PrimaryHueDarkBrush}"
                     ToolTip="Yeni Müşteri Ekle">
                 <materialDesign:PackIcon Kind="Plus" Height="24" Width="24"/>
             </Button>
@@ -27,39 +35,163 @@
                        VerticalAlignment="Center"/>
         </DockPanel>
 
-        <!-- Customers DataGrid -->
-        <DataGrid Grid.Row="1"
-                  ItemsSource="{Binding Customers}"
-                  AutoGenerateColumns="False"
-                  IsReadOnly="True"
-                  CanUserAddRows="False"
-                  CanUserDeleteRows="False"
-                  materialDesign:DataGridAssist.CellPadding="13 8 8 8"
-                  materialDesign:DataGridAssist.ColumnHeaderPadding="8">
-            
-            <!-- Design-time data -->
-            <d:DataGrid.ItemsSource>
-                <x:Array Type="local:CustomerDesignData">
-                    <local:CustomerDesignData FirstName="Ahmet" LastName="Yılmaz" Phone="(555) 123-4567" Balance="1500.00"/>
-                    <local:CustomerDesignData FirstName="Mehmet" LastName="Kaya" Phone="(532) 234-5678" Balance="2750.50"/>
-                    <local:CustomerDesignData FirstName="Ayşe" LastName="Demir" Phone="(505) 345-6789" Balance="800.25"/>
-                </x:Array>
-            </d:DataGrid.ItemsSource>
+        <!-- Search Bar -->
+        <Grid Grid.Row="1" Margin="0 0 0 16">
+            <materialDesign:Card Padding="8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <materialDesign:PackIcon Kind="Search" 
+                                           Grid.Column="0" 
+                                           VerticalAlignment="Center"
+                                           Margin="8 0 8 0"/>
+                    
+                    <TextBox Grid.Column="1"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             materialDesign:HintAssist.Hint="Müşteri ara..."
+                             Style="{StaticResource MaterialDesignTextBox}"
+                             VerticalAlignment="Center"
+                             Margin="0 8 8 8"
+                             BorderThickness="0"/>
+                </Grid>
+            </materialDesign:Card>
+        </Grid>
 
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Ad" 
-                                  Binding="{Binding FirstName}"
-                                  Width="*"/>
-                <DataGridTextColumn Header="Soyad" 
-                                  Binding="{Binding LastName}"
-                                  Width="*"/>
-                <DataGridTextColumn Header="Telefon" 
-                                  Binding="{Binding Phone}"
-                                  Width="*"/>
-                <DataGridTextColumn Header="Bakiye" 
-                                  Binding="{Binding Balance, StringFormat={}{0:C2}}"
-                                  Width="*"/>
-            </DataGrid.Columns>
-        </DataGrid>
+        <!-- Customer Cards -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding FilteredCustomers}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <materialDesign:Card Margin="0 0 0 16" Padding="16" UniformCornerRadius="8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Customer Name -->
+                                <TextBlock Grid.Row="0" Grid.Column="0"
+                                          Text="{Binding FirstName, StringFormat='{}{0} '}"
+                                          Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                                          FontWeight="Bold">
+                                    <TextBlock.Inlines>
+                                        <Run Text="{Binding LastName}"/>
+                                    </TextBlock.Inlines>
+                                </TextBlock>
+                                
+                                <!-- Contact Info -->
+                                <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0 8 0 0">
+                                    <materialDesign:PackIcon Kind="Phone" VerticalAlignment="Center" Margin="0 0 8 0"/>
+                                    <TextBlock Text="{Binding Phone}" VerticalAlignment="Center"/>
+                                    
+                                    <materialDesign:PackIcon Kind="Email" VerticalAlignment="Center" Margin="16 0 8 0"/>
+                                    <TextBlock Text="{Binding Email}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                
+                                <!-- Balance -->
+                                <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="2" 
+                                           VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <TextBlock Text="Bakiye Durumu" 
+                                             HorizontalAlignment="Center" 
+                                             FontSize="12" 
+                                             Opacity="0.7"/>
+                                    <TextBlock Text="{Binding Balance, StringFormat={}{0:C2}}" 
+                                             FontWeight="Bold" 
+                                             FontSize="18"
+                                             HorizontalAlignment="Center"
+                                             Foreground="{Binding Balance, Converter={StaticResource BalanceToColorConverter}}"/>
+                                </StackPanel>
+                                
+                                <!-- Transaction History Button -->
+                                <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                       Command="{Binding DataContext.ShowTransactionHistoryCommand, 
+                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                       CommandParameter="{Binding}"
+                                       Margin="0 16 0 0"
+                                       Style="{StaticResource MaterialDesignOutlinedButton}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="History" Margin="0 0 8 0"/>
+                                        <TextBlock Text="Geçmiş İşlemler"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </materialDesign:Card>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Add Customer Dialog -->
+        <materialDesign:DialogHost Grid.RowSpan="3" 
+                                 IsOpen="{Binding IsAddDialogOpen}" 
+                                 CloseOnClickAway="True">
+            <materialDesign:DialogHost.DialogContent>
+                <Grid Width="400" Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" 
+                             Text="Yeni Müşteri Ekle" 
+                             Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                             Margin="0 0 0 16"/>
+
+                    <TextBox Grid.Row="1"
+                           Text="{Binding NewCustomer.FirstName}"
+                           materialDesign:HintAssist.Hint="Ad"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="2"
+                           Text="{Binding NewCustomer.LastName}"
+                           materialDesign:HintAssist.Hint="Soyad"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="3"
+                           Text="{Binding NewCustomer.Phone}"
+                           materialDesign:HintAssist.Hint="Telefon"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="4"
+                           Text="{Binding NewCustomer.Email}"
+                           materialDesign:HintAssist.Hint="E-posta"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="5"
+                           Text="{Binding NewCustomer.Address}"
+                           materialDesign:HintAssist.Hint="Adres"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 16"/>
+
+                    <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Command="{Binding CancelAddCommand}"
+                              Style="{StaticResource MaterialDesignOutlinedButton}"
+                              Content="İptal"
+                              Margin="0 0 8 0"/>
+                        
+                        <Button Command="{Binding SaveCustomerCommand}"
+                              Style="{StaticResource MaterialDesignRaisedButton}"
+                              Content="Kaydet"/>
+                    </StackPanel>
+                </Grid>
+            </materialDesign:DialogHost.DialogContent>
+        </materialDesign:DialogHost>
     </Grid>
 </UserControl> 

@@ -5,17 +5,31 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:local="clr-namespace:Nethesap.UI.Views"
+             xmlns:converters="clr-namespace:Nethesap.UI.Converters"
+             xmlns:viewModels="clr-namespace:Nethesap.UI.ViewModels"
              mc:Ignorable="d"
-             d:DesignHeight="450" d:DesignWidth="800">
+             d:DesignHeight="700" d:DesignWidth="1000"
+             d:DataContext="{d:DesignInstance Type=viewModels:ProductsViewModel}">
+    
+    <UserControl.Resources>
+        <converters:StockLevelToColorConverter x:Key="StockLevelToColorConverter"/>
+        <converters:StockLevelToVisibilityConverter x:Key="StockLevelToVisibilityConverter"/>
+    </UserControl.Resources>
+    
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
+
+        <!-- Header with Title and Add Button -->
         <DockPanel Grid.Row="0" Margin="0 0 0 16">
             <Button DockPanel.Dock="Right"
                     Command="{Binding AddProductCommand}"
                     Style="{StaticResource MaterialDesignFloatingActionButton}"
+                    Background="{StaticResource PrimaryHueDarkBrush}"
+                    BorderBrush="{StaticResource PrimaryHueDarkBrush}"
                     ToolTip="Yeni Ürün Ekle">
                 <materialDesign:PackIcon Kind="Plus" Height="24" Width="24"/>
             </Button>
@@ -23,28 +37,290 @@
                        Style="{StaticResource MaterialDesignHeadline5TextBlock}"
                        VerticalAlignment="Center"/>
         </DockPanel>
-        <DataGrid Grid.Row="1"
-                  ItemsSource="{Binding Products}"
-                  AutoGenerateColumns="False"
-                  IsReadOnly="True"
-                  CanUserAddRows="False"
-                  CanUserDeleteRows="False"
-                  materialDesign:DataGridAssist.CellPadding="13 8 8 8"
-                  materialDesign:DataGridAssist.ColumnHeaderPadding="8">
-            <d:DataGrid.ItemsSource>
-                <x:Array Type="local:ProductDesignData">
-                    <local:ProductDesignData Name="Laptop" Description="Oyun Bilgisayarı" Barcode="1234567890" Category="Elektronik" Price="25000"/>
-                    <local:ProductDesignData Name="Telefon" Description="Akıllı Telefon" Barcode="0987654321" Category="Elektronik" Price="15000"/>
-                    <local:ProductDesignData Name="Klavye" Description="Mekanik Klavye" Barcode="1122334455" Category="Aksesuar" Price="1200"/>
-                </x:Array>
-            </d:DataGrid.ItemsSource>
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Ürün Adı" Binding="{Binding Name}" Width="*"/>
-                <DataGridTextColumn Header="Açıklama" Binding="{Binding Description}" Width="2*"/>
-                <DataGridTextColumn Header="Barkod" Binding="{Binding Barcode}" Width="*"/>
-                <DataGridTextColumn Header="Kategori" Binding="{Binding Category}" Width="*"/>
-                <DataGridTextColumn Header="Fiyat" Binding="{Binding Price, StringFormat={}{0:C2}}" Width="*"/>
-            </DataGrid.Columns>
-        </DataGrid>
+
+        <!-- Search Bar -->
+        <Grid Grid.Row="1" Margin="0 0 0 16">
+            <materialDesign:Card Padding="8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <materialDesign:PackIcon Kind="Search" 
+                                           Grid.Column="0" 
+                                           VerticalAlignment="Center"
+                                           Margin="8 0 8 0"/>
+                    
+                    <TextBox Grid.Column="1"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             materialDesign:HintAssist.Hint="Ürün ara..."
+                             Style="{StaticResource MaterialDesignTextBox}"
+                             VerticalAlignment="Center"
+                             Margin="0 8 8 8"
+                             BorderThickness="0"/>
+                </Grid>
+            </materialDesign:Card>
+        </Grid>
+
+        <!-- Product Grid -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding FilteredProducts}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <materialDesign:Card Width="290" Margin="8" UniformCornerRadius="8"
+                                           BorderThickness="2"
+                                           BorderBrush="{Binding StockQuantity, Converter={StaticResource StockLevelToColorConverter}}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Product Header with Category -->
+                                <DockPanel Grid.Row="0" Margin="16 16 16 0">
+                                    <materialDesign:Chip
+                                        DockPanel.Dock="Right"
+                                        Content="{Binding Category}"
+                                        Background="{StaticResource SecondaryHueMidBrush}"
+                                        Foreground="{StaticResource SecondaryHueMidForegroundBrush}"
+                                        VerticalAlignment="Top"/>
+                                    
+                                    <!-- Stock Warning Icon -->
+                                    <materialDesign:PackIcon
+                                        Kind="AlertCircle"
+                                        Foreground="Red"
+                                        VerticalAlignment="Center"
+                                        Height="20" Width="20"
+                                        Margin="0 0 8 0"
+                                        Visibility="{Binding StockQuantity, Converter={StaticResource StockLevelToVisibilityConverter}}"
+                                        ToolTip="{Binding StockQuantity, StringFormat='Stok Durumu: {0}'}"/>
+                                    
+                                    <!-- Product Name -->
+                                    <TextBlock Text="{Binding Name}"
+                                            FontWeight="Bold"
+                                            Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                                            TextWrapping="Wrap"/>
+                                </DockPanel>
+                                
+                                <!-- Product Details -->
+                                <StackPanel Grid.Row="1" Margin="16 8 16 0">
+                                    <TextBlock Text="{Binding Description}"
+                                             Style="{StaticResource MaterialDesignBody1TextBlock}"
+                                             TextWrapping="Wrap"
+                                             Opacity="0.8"
+                                             Margin="0 0 0 8"/>
+                                    
+                                    <StackPanel Orientation="Horizontal" Margin="0 4 0 0">
+                                        <materialDesign:PackIcon Kind="Barcode" VerticalAlignment="Center" Margin="0 0 8 0"/>
+                                        <TextBlock Text="{Binding Barcode}" VerticalAlignment="Center" Opacity="0.7"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                
+                                <!-- Price and Stock -->
+                                <Grid Grid.Row="2" Margin="16 8 16 0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <!-- Price -->
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Fiyat" 
+                                                 FontSize="12" 
+                                                 Opacity="0.7"/>
+                                        <TextBlock Text="{Binding Price, StringFormat={}{0:C2}}" 
+                                                 FontWeight="Bold" 
+                                                 FontSize="18"/>
+                                    </StackPanel>
+                                    
+                                    <!-- Stock -->
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="Stok" 
+                                                 FontSize="12" 
+                                                 Opacity="0.7"
+                                                 HorizontalAlignment="Right"/>
+                                        <TextBlock Text="{Binding StockQuantity}" 
+                                                 FontWeight="Bold" 
+                                                 FontSize="18"
+                                                 HorizontalAlignment="Right"
+                                                 Foreground="{Binding StockQuantity, Converter={StaticResource StockLevelToColorConverter}}"/>
+                                    </StackPanel>
+                                </Grid>
+                                
+                                <!-- Actions -->
+                                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="8 16 8 16" HorizontalAlignment="Right">
+                                    <Button Style="{StaticResource MaterialDesignIconButton}" 
+                                          Command="{Binding DataContext.EditProductCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                          CommandParameter="{Binding}"
+                                          ToolTip="Düzenle">
+                                        <materialDesign:PackIcon Kind="Edit" />
+                                    </Button>
+                                    
+                                    <Button Style="{StaticResource MaterialDesignIconButton}" 
+                                          Command="{Binding DataContext.DeleteProductCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                          CommandParameter="{Binding}"
+                                          ToolTip="Sil"
+                                          Margin="8 0 0 0">
+                                        <materialDesign:PackIcon Kind="Delete" />
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                        </materialDesign:Card>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+        
+        <!-- Add Product Dialog -->
+        <materialDesign:DialogHost Grid.RowSpan="3" 
+                                 IsOpen="{Binding IsAddDialogOpen}" 
+                                 CloseOnClickAway="True">
+            <materialDesign:DialogHost.DialogContent>
+                <Grid Width="400" Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" 
+                             Text="Yeni Ürün Ekle" 
+                             Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                             Margin="0 0 0 16"/>
+
+                    <TextBox Grid.Row="1"
+                           Text="{Binding NewProduct.Name}"
+                           materialDesign:HintAssist.Hint="Ürün Adı"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="2"
+                           Text="{Binding NewProduct.Description}"
+                           materialDesign:HintAssist.Hint="Açıklama"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="3"
+                           Text="{Binding NewProduct.Price}"
+                           materialDesign:HintAssist.Hint="Fiyat"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="4"
+                           Text="{Binding NewProduct.StockQuantity}"
+                           materialDesign:HintAssist.Hint="Stok Miktarı"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="5"
+                           Text="{Binding NewProduct.Barcode}"
+                           materialDesign:HintAssist.Hint="Barkod"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="6"
+                           Text="{Binding NewProduct.Category}"
+                           materialDesign:HintAssist.Hint="Kategori"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 16"/>
+
+                    <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Command="{Binding CancelAddCommand}"
+                              Style="{StaticResource MaterialDesignOutlinedButton}"
+                              Content="İptal"
+                              Margin="0 0 8 0"/>
+                        
+                        <Button Command="{Binding SaveProductCommand}"
+                              Style="{StaticResource MaterialDesignRaisedButton}"
+                              Content="Kaydet"/>
+                    </StackPanel>
+                </Grid>
+            </materialDesign:DialogHost.DialogContent>
+        </materialDesign:DialogHost>
+        
+        <!-- Edit Product Dialog -->
+        <materialDesign:DialogHost Grid.RowSpan="3" 
+                                 IsOpen="{Binding IsEditDialogOpen}" 
+                                 CloseOnClickAway="True">
+            <materialDesign:DialogHost.DialogContent>
+                <Grid Width="400" Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" 
+                             Text="Ürünü Düzenle" 
+                             Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                             Margin="0 0 0 16"/>
+
+                    <TextBox Grid.Row="1"
+                           Text="{Binding SelectedProduct.Name}"
+                           materialDesign:HintAssist.Hint="Ürün Adı"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="2"
+                           Text="{Binding SelectedProduct.Description}"
+                           materialDesign:HintAssist.Hint="Açıklama"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="3"
+                           Text="{Binding SelectedProduct.Price}"
+                           materialDesign:HintAssist.Hint="Fiyat"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="4"
+                           Text="{Binding SelectedProduct.StockQuantity}"
+                           materialDesign:HintAssist.Hint="Stok Miktarı"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="5"
+                           Text="{Binding SelectedProduct.Barcode}"
+                           materialDesign:HintAssist.Hint="Barkod"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 8"/>
+
+                    <TextBox Grid.Row="6"
+                           Text="{Binding SelectedProduct.Category}"
+                           materialDesign:HintAssist.Hint="Kategori"
+                           Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                           Margin="0 0 0 16"/>
+
+                    <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Command="{Binding CancelEditCommand}"
+                              Style="{StaticResource MaterialDesignOutlinedButton}"
+                              Content="İptal"
+                              Margin="0 0 8 0"/>
+                        
+                        <Button Command="{Binding SaveEditCommand}"
+                              Style="{StaticResource MaterialDesignRaisedButton}"
+                              Content="Güncelle"/>
+                    </StackPanel>
+                </Grid>
+            </materialDesign:DialogHost.DialogContent>
+        </materialDesign:DialogHost>
     </Grid>
 </UserControl> 

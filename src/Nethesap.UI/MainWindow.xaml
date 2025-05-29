@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:local="clr-namespace:Nethesap.UI"
+        xmlns:viewModels="clr-namespace:Nethesap.UI.ViewModels"
         mc:Ignorable="d"
         Title="Nethesap" 
         Height="720" 
@@ -16,6 +17,10 @@
         TextOptions.TextFormattingMode="Ideal"
         TextOptions.TextRenderingMode="Auto"
         FontFamily="{materialDesign:MaterialDesignFont}">
+
+    <Window.DataContext>
+        <viewModels:MainViewModel/>
+    </Window.DataContext>
 
     <materialDesign:DialogHost Identifier="RootDialog" SnackbarMessageQueue="{Binding ElementName=MainSnackbar, Path=MessageQueue}">
         <Grid>
@@ -34,16 +39,15 @@
                                                PlacementMode="BottomAndAlignRightEdges"
                                                StaysOpen="False">
                             <StackPanel>
-                                <Button Content="Ayarlar"/>
-                                <Button Content="Hesap"/>
+                                <Button Content="Ayarlar" Click="Settings_Click"/>
                                 <Separator/>
-                                <Button Content="Çıkış"/>
+                                <Button Content="Çıkış" Click="Exit_Click"/>
                             </StackPanel>
                         </materialDesign:PopupBox>
                         <TextBlock HorizontalAlignment="Center"
                                  VerticalAlignment="Center"
                                  FontSize="22"
-                                 Text="NETHESAP"/>
+                                 Text="{Binding CurrentViewTitle, FallbackValue=NETHESAP}"/>
                     </DockPanel>
                 </materialDesign:ColorZone>
 
@@ -59,7 +63,7 @@
                             <ListBox x:Name="NavigationList" 
                                     Margin="0 16 0 16" 
                                     SelectionChanged="NavigationList_SelectionChanged">
-                                <ListBoxItem>
+                                <ListBoxItem x:Name="DashboardItem">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="ViewDashboard" 
                                                                Height="25" 
@@ -69,7 +73,7 @@
                                                  VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ListBoxItem>
-                                <ListBoxItem>
+                                <ListBoxItem x:Name="CustomersItem">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="AccountMultiple" 
                                                                Height="25" 
@@ -79,7 +83,7 @@
                                                  VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ListBoxItem>
-                                <ListBoxItem>
+                                <ListBoxItem x:Name="ProductsItem">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Package" 
                                                                Height="25" 
@@ -89,13 +93,23 @@
                                                  VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ListBoxItem>
-                                <ListBoxItem>
+                                <ListBoxItem x:Name="SalesItem">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="CashRegister" 
                                                                Height="25" 
                                                                Width="25" 
                                                                Margin="10"/>
                                         <TextBlock Text="Satışlar" 
+                                                 VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </ListBoxItem>
+                                <ListBoxItem x:Name="AccountsItem">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="CashMultiple" 
+                                                               Height="25" 
+                                                               Width="25" 
+                                                               Margin="10"/>
+                                        <TextBlock Text="Hesaplar" 
                                                  VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ListBoxItem>
@@ -108,7 +122,7 @@
                         <materialDesign:Snackbar MessageQueue="{materialDesign:MessageQueue}" 
                                                x:Name="MainSnackbar" 
                                                DockPanel.Dock="Bottom"/>
-                        <ContentControl x:Name="MainRegion" />
+                        <ContentControl Content="{Binding CurrentView}" />
                     </DockPanel>
                 </materialDesign:DrawerHost>
             </DockPanel>

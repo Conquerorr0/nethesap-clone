@@ -16,6 +16,8 @@
             <!-- Converters -->
             <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
             <converters:MathConverter x:Key="MathConverter" />
+            <converters:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+            <converters:PaymentTypeToVisibilityConverter x:Key="PaymentTypeToVisibilityConverter" />
             
         </ResourceDictionary>
     </Application.Resources>
