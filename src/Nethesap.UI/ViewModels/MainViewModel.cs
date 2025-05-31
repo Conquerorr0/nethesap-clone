@@ -81,7 +81,7 @@ namespace Nethesap.UI.ViewModels
 
         public void NavigateToSettings()
         {
-            CurrentView = new SettingsView();
+            CurrentView = new SettingsView { DataContext = new SettingsViewModel() };
             CurrentViewTitle = "Ayarlar";
         }
 
