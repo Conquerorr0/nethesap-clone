@@ -5,18 +5,198 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:local="clr-namespace:Nethesap.UI.Views"
+             xmlns:viewModels="clr-namespace:Nethesap.UI.ViewModels"
+             xmlns:converters="clr-namespace:Nethesap.UI.Converters"
              mc:Ignorable="d"
-             d:DesignHeight="450" d:DesignWidth="800">
-    <StackPanel Margin="32" Width="400">
-        <TextBlock Text="Ayarlar" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0 0 0 24"/>
-        <TextBox Margin="0 0 0 16" 
-                 materialDesign:HintAssist.Hint="Firma Adı"
-                 Text="{Binding CompanyName, FallbackValue=Demo Şirket}"/>
-        <TextBox Margin="0 0 0 16" 
-                 materialDesign:HintAssist.Hint="E-posta"
-                 Text="{Binding Email, FallbackValue=info@demo.com}"/>
-        <PasswordBox Margin="0 0 0 16" 
-                     materialDesign:HintAssist.Hint="Şifre"/>
-        <Button Content="Kaydet" Style="{StaticResource MaterialDesignRaisedButton}" Width="120" HorizontalAlignment="Right"/>
-    </StackPanel>
+             d:DesignHeight="700" d:DesignWidth="1000">
+    
+    <UserControl.Resources>
+        <converters:BoolToThemeNameConverter x:Key="BoolToThemeNameConverter" />
+    </UserControl.Resources>
+    
+    <UserControl.DataContext>
+        <viewModels:SettingsViewModel/>
+    </UserControl.DataContext>
+    
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="32">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Başlık ve Geri Dön Butonu -->
+            <Grid Grid.Row="0" Margin="0 0 0 24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <Button Grid.Column="0" 
+                        Style="{StaticResource MaterialDesignIconButton}" 
+                        Command="{Binding BackCommand}"
+                        ToolTip="Geri Dön">
+                    <materialDesign:PackIcon Kind="ArrowLeft" Width="24" Height="24"/>
+                </Button>
+                
+                <TextBlock Grid.Column="1" 
+                           Text="Ayarlar" 
+                           Style="{StaticResource MaterialDesignHeadline4TextBlock}" 
+                           Margin="16 0 0 0"
+                           VerticalAlignment="Center"/>
+            </Grid>
+
+            <materialDesign:Card Grid.Row="1" Padding="32" Margin="0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Sol taraf - Ayar kategorileri -->
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Kategoriler" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0 0 0 16"/>
+                        <ListBox x:Name="SettingsCategories" SelectedIndex="0">
+                            <ListBoxItem>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Store" Margin="0 0 8 0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Şirket Bilgileri"/>
+                                </StackPanel>
+                            </ListBoxItem>
+                            <ListBoxItem>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ThemeLightDark" Margin="0 0 8 0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Görünüm"/>
+                                </StackPanel>
+                            </ListBoxItem>
+                            <ListBoxItem>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Database" Margin="0 0 8 0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Yedekleme"/>
+                                </StackPanel>
+                            </ListBoxItem>
+                        </ListBox>
+                    </StackPanel>
+
+                    <!-- Sağ taraf - Ayar içeriği -->
+                    <Border Grid.Column="1" BorderThickness="1 0 0 0" BorderBrush="{DynamicResource MaterialDesignDivider}" Padding="32 0 0 0">
+                        <Grid>
+                            <Grid x:Name="CompanySettingsPanel" Visibility="Visible">
+                                <StackPanel>
+                                    <TextBlock Text="Şirket Bilgileri" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0 0 0 24"/>
+                                    
+                                    <TextBox Margin="0 0 0 16" 
+                                             materialDesign:HintAssist.Hint="Firma Adı"
+                                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                             Text="{Binding CompanyName}"/>
+                                    
+                                    <TextBox Margin="0 0 0 16" 
+                                             materialDesign:HintAssist.Hint="E-posta"
+                                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                             Text="{Binding Email}"/>
+                                    
+                                    <TextBox Margin="0 0 0 16" 
+                                             materialDesign:HintAssist.Hint="Telefon"
+                                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                             Text="{Binding Phone}"/>
+                                    
+                                    <TextBox Margin="0 0 0 16" 
+                                             materialDesign:HintAssist.Hint="Adres"
+                                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                             Text="{Binding Address}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             MinHeight="80"/>
+                                    
+                                    <TextBox Margin="0 0 0 16" 
+                                             materialDesign:HintAssist.Hint="Vergi Numarası"
+                                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                             Text="{Binding TaxNumber}"/>
+                                    
+                                    <ComboBox Margin="0 0 0 24"
+                                              materialDesign:HintAssist.Hint="Para Birimi"
+                                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                              ItemsSource="{Binding AvailableCurrencies}"
+                                              SelectedItem="{Binding Currency}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid x:Name="AppearanceSettingsPanel" Visibility="Collapsed">
+                                <StackPanel>
+                                    <TextBlock Text="Görünüm Ayarları" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0 0 0 24"/>
+                                    
+                                    <materialDesign:Card Margin="0 0 0 16" Padding="16">
+                                        <StackPanel>
+                                            <TextBlock Text="Tema" Style="{StaticResource MaterialDesignSubtitle1TextBlock}" Margin="0 0 0 8"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
+                                                <TextBlock Text="Koyu Tema" VerticalAlignment="Center" Margin="0 0 16 0"/>
+                                                <ToggleButton IsChecked="{Binding DarkThemeEnabled}" />
+                                                <TextBlock Text="{Binding DarkThemeEnabled, Converter={StaticResource BoolToThemeNameConverter}}" 
+                                                           Margin="16 0 0 0" 
+                                                           VerticalAlignment="Center"
+                                                           FontWeight="Medium"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </materialDesign:Card>
+                                    
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid x:Name="BackupSettingsPanel" Visibility="Collapsed">
+                                <StackPanel>
+                                    <TextBlock Text="Yedekleme Ayarları" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0 0 0 24"/>
+                                    
+                                    <StackPanel Orientation="Horizontal" Margin="0 0 0 16">
+                                        <TextBlock Text="Otomatik Yedekleme" VerticalAlignment="Center" Margin="0 0 16 0"/>
+                                        <ToggleButton IsChecked="{Binding AutoBackupEnabled}"/>
+                                    </StackPanel>
+                                    
+                                    <Grid Margin="0 0 0 16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Grid.Column="0"
+                                                 materialDesign:HintAssist.Hint="Yedekleme Konumu"
+                                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                                 Text="{Binding BackupLocation}"
+                                                 IsEnabled="{Binding AutoBackupEnabled}"/>
+                                        <Button Grid.Column="1"
+                                                Content="Gözat"
+                                                Style="{StaticResource MaterialDesignOutlinedButton}"
+                                                Margin="8 0 0 0"
+                                                Command="{Binding BrowseBackupLocationCommand}"
+                                                IsEnabled="{Binding AutoBackupEnabled}"/>
+                                    </Grid>
+                                    
+                                    <Button Content="Şimdi Yedekle" 
+                                            Command="{Binding BackupNowCommand}"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"
+                                            HorizontalAlignment="Left"
+                                            Margin="0 16 0 0"/>
+                                    
+                                    <TextBlock Text="Not: Otomatik yedekleme etkinken, uygulama her 24 saatte bir otomatik olarak yedeklenir." 
+                                               Style="{StaticResource MaterialDesignBody2TextBlock}"
+                                               TextWrapping="Wrap"
+                                               Margin="0 16 0 0"
+                                               Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </materialDesign:Card>
+
+            <!-- Bottom action buttons -->
+            <StackPanel Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Right" Orientation="Horizontal" Margin="0 24 0 0">
+                <Button Content="Varsayılanlara Dön" 
+                        Style="{StaticResource MaterialDesignOutlinedButton}" 
+                        Command="{Binding ResetToDefaultsCommand}"
+                        Margin="0 0 16 0"/>
+                <Button Content="Kaydet" 
+                        Style="{StaticResource MaterialDesignRaisedButton}"
+                        Command="{Binding SaveSettingsCommand}"/>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
 </UserControl> 
