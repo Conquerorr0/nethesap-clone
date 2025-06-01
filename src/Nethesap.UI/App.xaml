@@ -18,6 +18,7 @@
             <converters:MathConverter x:Key="MathConverter" />
             <converters:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
             <converters:PaymentTypeToVisibilityConverter x:Key="PaymentTypeToVisibilityConverter" />
+            <converters:BoolToThemeNameConverter x:Key="BoolToThemeNameConverter" />
             
         </ResourceDictionary>
     </Application.Resources>

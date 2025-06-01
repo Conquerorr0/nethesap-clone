@@ -4,18 +4,21 @@ using System.Runtime.CompilerServices;
 using System.Windows.Controls;
 using Nethesap.Domain.Entities;
 using Nethesap.UI.Views;
+using MaterialDesignThemes.Wpf;
+using Nethesap.UI.Localization;
+using Nethesap.UI.Services;
 
 namespace Nethesap.UI.ViewModels
 {
     public class MainViewModel : INotifyPropertyChanged
     {
-        private UserControl _currentView;
+        private System.Windows.Controls.UserControl _currentView;
         private string _currentViewTitle;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
         // Properties
-        public UserControl CurrentView
+        public System.Windows.Controls.UserControl CurrentView
         {
             get => _currentView;
             set
@@ -38,6 +41,45 @@ namespace Nethesap.UI.ViewModels
         // Constructor - public yapıcı metot
         public MainViewModel()
         {
+            try
+            {
+                // Ayarları yükle
+                var settings = SettingsService.LoadSettings();
+                
+                // Tema ayarını yükle
+                bool isDarkTheme = false;
+                if (settings.TryGetValue("DarkThemeEnabled", out var themeValue))
+                {
+                    if (themeValue is System.Text.Json.JsonElement element && element.ValueKind == System.Text.Json.JsonValueKind.True)
+                    {
+                        isDarkTheme = true;
+                    }
+                    else if (themeValue is bool boolValue)
+                    {
+                        isDarkTheme = boolValue;
+                    }
+                }
+                
+                Console.WriteLine($"Loaded theme: {(isDarkTheme ? "Dark" : "Light")}");
+                
+                // Uygulama başlatıldığında tema ayarını uygula
+                var paletteHelper = new PaletteHelper();
+                var theme = paletteHelper.GetTheme();
+                
+                theme.SetBaseTheme(isDarkTheme ? 
+                    Theme.Dark : 
+                    Theme.Light);
+                    
+                paletteHelper.SetTheme(theme);
+                
+                // Statik değişkenleri güncelle
+                SettingsViewModel.SetTheme(isDarkTheme);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading settings: {ex.Message}");
+            }
+            
             // Default view is Dashboard
             NavigateToDashboard();
         }
@@ -81,7 +123,15 @@ namespace Nethesap.UI.ViewModels
 
         public void NavigateToSettings()
         {
-            CurrentView = new SettingsView { DataContext = new SettingsViewModel() };
+            var settingsViewModel = new SettingsViewModel();
+            
+            // Mevcut tema ayarını yükle
+            settingsViewModel.DarkThemeEnabled = SettingsViewModel.GetCurrentTheme();
+            
+            // Geri dönüş olayını dinle
+            settingsViewModel.GoBack += () => NavigateToDashboard();
+            
+            CurrentView = new SettingsView { DataContext = settingsViewModel };
             CurrentViewTitle = "Ayarlar";
         }
 

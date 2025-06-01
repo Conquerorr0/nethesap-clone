@@ -4,7 +4,7 @@ using Nethesap.UI.ViewModels;
 
 namespace Nethesap.UI.Views;
 
-public partial class ProductsView : UserControl
+public partial class ProductsView : System.Windows.Controls.UserControl
 {
     public ProductsView()
     {

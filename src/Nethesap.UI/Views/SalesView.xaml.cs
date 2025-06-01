@@ -3,7 +3,7 @@ using System.Windows.Controls;
 
 namespace Nethesap.UI.Views;
 
-public partial class SalesView : UserControl
+public partial class SalesView : System.Windows.Controls.UserControl
 {
     public SalesView()
     {

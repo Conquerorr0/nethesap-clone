@@ -6,8 +6,13 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:local="clr-namespace:Nethesap.UI.Views"
              xmlns:viewModels="clr-namespace:Nethesap.UI.ViewModels"
+             xmlns:converters="clr-namespace:Nethesap.UI.Converters"
              mc:Ignorable="d"
              d:DesignHeight="700" d:DesignWidth="1000">
+    
+    <UserControl.Resources>
+        <converters:BoolToThemeNameConverter x:Key="BoolToThemeNameConverter" />
+    </UserControl.Resources>
     
     <UserControl.DataContext>
         <viewModels:SettingsViewModel/>
@@ -20,7 +25,26 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Text="Ayarlar" Style="{StaticResource MaterialDesignHeadline4TextBlock}" Margin="0 0 0 24"/>
+            <!-- Başlık ve Geri Dön Butonu -->
+            <Grid Grid.Row="0" Margin="0 0 0 24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <Button Grid.Column="0" 
+                        Style="{StaticResource MaterialDesignIconButton}" 
+                        Command="{Binding BackCommand}"
+                        ToolTip="Geri Dön">
+                    <materialDesign:PackIcon Kind="ArrowLeft" Width="24" Height="24"/>
+                </Button>
+                
+                <TextBlock Grid.Column="1" 
+                           Text="Ayarlar" 
+                           Style="{StaticResource MaterialDesignHeadline4TextBlock}" 
+                           Margin="16 0 0 0"
+                           VerticalAlignment="Center"/>
+            </Grid>
 
             <materialDesign:Card Grid.Row="1" Padding="32" Margin="0">
                 <Grid>
@@ -101,16 +125,20 @@
                                 <StackPanel>
                                     <TextBlock Text="Görünüm Ayarları" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0 0 0 24"/>
                                     
-                                    <StackPanel Orientation="Horizontal" Margin="0 0 0 16">
-                                        <TextBlock Text="Koyu Tema" VerticalAlignment="Center" Margin="0 0 16 0"/>
-                                        <ToggleButton IsChecked="{Binding DarkThemeEnabled}"/>
-                                    </StackPanel>
+                                    <materialDesign:Card Margin="0 0 0 16" Padding="16">
+                                        <StackPanel>
+                                            <TextBlock Text="Tema" Style="{StaticResource MaterialDesignSubtitle1TextBlock}" Margin="0 0 0 8"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
+                                                <TextBlock Text="Koyu Tema" VerticalAlignment="Center" Margin="0 0 16 0"/>
+                                                <ToggleButton IsChecked="{Binding DarkThemeEnabled}" />
+                                                <TextBlock Text="{Binding DarkThemeEnabled, Converter={StaticResource BoolToThemeNameConverter}}" 
+                                                           Margin="16 0 0 0" 
+                                                           VerticalAlignment="Center"
+                                                           FontWeight="Medium"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </materialDesign:Card>
                                     
-                                    <ComboBox Margin="0 0 0 16"
-                                              materialDesign:HintAssist.Hint="Dil"
-                                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
-                                              ItemsSource="{Binding AvailableLanguages}"
-                                              SelectedItem="{Binding Language}"/>
                                 </StackPanel>
                             </Grid>
 
@@ -140,6 +168,18 @@
                                                 Command="{Binding BrowseBackupLocationCommand}"
                                                 IsEnabled="{Binding AutoBackupEnabled}"/>
                                     </Grid>
+                                    
+                                    <Button Content="Şimdi Yedekle" 
+                                            Command="{Binding BackupNowCommand}"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"
+                                            HorizontalAlignment="Left"
+                                            Margin="0 16 0 0"/>
+                                    
+                                    <TextBlock Text="Not: Otomatik yedekleme etkinken, uygulama her 24 saatte bir otomatik olarak yedeklenir." 
+                                               Style="{StaticResource MaterialDesignBody2TextBlock}"
+                                               TextWrapping="Wrap"
+                                               Margin="0 16 0 0"
+                                               Foreground="{DynamicResource MaterialDesignBodyLight}"/>
                                 </StackPanel>
                             </Grid>
                         </Grid>
