@@ -21,6 +21,7 @@ namespace Nethesap.UI.ViewModels
         private bool _isNewSaleDialogOpen;
         private bool _isRefundDialogOpen;
         private bool _isProductSearchOpen;
+        private bool _isSaleDetailsDialogOpen;
         
         private Product _selectedProduct;
         private Customer _selectedCustomer;
@@ -47,6 +48,9 @@ namespace Nethesap.UI.ViewModels
         private ICommand _cancelRefundCommand;
         private ICommand _filterSalesCommand;
         private ICommand _resetFilterCommand;
+        private ICommand _viewSaleDetailsCommand;
+        private ICommand _closeSaleDetailsCommand;
+        private ICommand _generateReportCommand;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -129,6 +133,16 @@ namespace Nethesap.UI.ViewModels
             set
             {
                 _isProductSearchOpen = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IsSaleDetailsDialogOpen
+        {
+            get => _isSaleDetailsDialogOpen;
+            set
+            {
+                _isSaleDetailsDialogOpen = value;
                 OnPropertyChanged();
             }
         }
@@ -269,6 +283,9 @@ namespace Nethesap.UI.ViewModels
         public ICommand CancelRefundCommand => _cancelRefundCommand ??= new RelayCommand(CancelRefund);
         public ICommand FilterSalesCommand => _filterSalesCommand ??= new RelayCommand(FilterSales);
         public ICommand ResetFilterCommand => _resetFilterCommand ??= new RelayCommand(ResetFilter);
+        public ICommand ViewSaleDetailsCommand => _viewSaleDetailsCommand ??= new RelayCommand<Payment>(ViewSaleDetails);
+        public ICommand CloseSaleDetailsCommand => _closeSaleDetailsCommand ??= new RelayCommand(CloseSaleDetails);
+        public ICommand GenerateReportCommand => _generateReportCommand ??= new RelayCommand(GenerateReport);
 
         // Constructor
         public SalesViewModel()
@@ -318,6 +335,7 @@ namespace Nethesap.UI.ViewModels
                     PaymentMethod = paymentMethod,
                     PaymentType = PaymentType.Sale,
                     Description = "Örnek satış",
+                    CreatedDate = date,
                     PaymentItems = new List<PaymentItem>()
                 };
 
@@ -362,6 +380,7 @@ namespace Nethesap.UI.ViewModels
                 Id = Guid.NewGuid(),
                 PaymentType = PaymentType.Sale,
                 PaymentMethod = PaymentMethod.Cash,
+                CreatedDate = DateTime.Now,
                 PaymentItems = new List<PaymentItem>()
             };
             
@@ -636,6 +655,105 @@ namespace Nethesap.UI.ViewModels
             EndDate = DateTime.Now;
             FilterPaymentMethod = null;
             FilterSales(null);
+        }
+
+        private void ViewSaleDetails(Payment sale)
+        {
+            if (sale != null)
+            {
+                SelectedSale = sale;
+                IsSaleDetailsDialogOpen = true;
+            }
+        }
+
+        private void CloseSaleDetails(object obj)
+        {
+            IsSaleDetailsDialogOpen = false;
+        }
+
+        private void GenerateReport(object obj)
+        {
+            if (FilteredSales == null || FilteredSales.Count == 0)
+            {
+                MessageBox.Show("Rapor oluşturmak için satış verisi bulunamadı.", "Bilgi", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            
+            var reportContent = new System.Text.StringBuilder();
+            reportContent.AppendLine("NETHESAP - SATIŞ RAPORU");
+            reportContent.AppendLine("=======================");
+            reportContent.AppendLine();
+            
+            // Filtreleme bilgileri
+            reportContent.AppendLine($"Rapor Tarihi: {DateTime.Now:dd.MM.yyyy HH:mm}");
+            
+            if (StartDate.HasValue)
+                reportContent.AppendLine($"Başlangıç Tarihi: {StartDate:dd.MM.yyyy}");
+            
+            if (EndDate.HasValue)
+                reportContent.AppendLine($"Bitiş Tarihi: {EndDate:dd.MM.yyyy}");
+            
+            if (FilterPaymentMethod.HasValue)
+                reportContent.AppendLine($"Ödeme Yöntemi: {FilterPaymentMethod}");
+            
+            reportContent.AppendLine();
+            reportContent.AppendLine($"Toplam Satış Adedi: {FilteredSales.Count}");
+            reportContent.AppendLine($"Toplam Satış Tutarı: {FilteredSales.Sum(s => s.TotalAmount):C2}");
+            reportContent.AppendLine();
+            
+            // Ödeme yöntemine göre gruplandırma
+            var paymentMethodGroups = FilteredSales.GroupBy(s => s.PaymentMethod);
+            reportContent.AppendLine("ÖDEME YÖNTEMİNE GÖRE SATIŞLAR");
+            reportContent.AppendLine("----------------------------");
+            
+            foreach (var group in paymentMethodGroups)
+            {
+                string paymentMethodName = group.Key.ToString();
+                switch (group.Key)
+                {
+                    case PaymentMethod.Cash:
+                        paymentMethodName = "Nakit";
+                        break;
+                    case PaymentMethod.CreditCard:
+                        paymentMethodName = "Kredi Kartı";
+                        break;
+                    case PaymentMethod.BankTransfer:
+                        paymentMethodName = "Havale";
+                        break;
+                }
+                
+                reportContent.AppendLine($"{paymentMethodName}: {group.Count()} adet, {group.Sum(s => s.TotalAmount):C2}");
+            }
+            
+            reportContent.AppendLine();
+            reportContent.AppendLine("SATIŞ LİSTESİ");
+            reportContent.AppendLine("------------");
+            
+            foreach (var sale in FilteredSales)
+            {
+                reportContent.AppendLine($"Tarih: {sale.CreatedDate:dd.MM.yyyy HH:mm}, Müşteri: {sale.Customer.FirstName} {sale.Customer.LastName}, Tutar: {sale.TotalAmount:C2}");
+            }
+            
+            // Raporu bir dosyaya kaydetmek için SaveFileDialog kullanımı
+            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "Text dosyaları (*.txt)|*.txt|Tüm dosyalar (*.*)|*.*",
+                DefaultExt = "txt",
+                FileName = $"Nethesap_Satis_Raporu_{DateTime.Now:yyyyMMdd_HHmmss}"
+            };
+            
+            if (saveFileDialog.ShowDialog() == true)
+            {
+                try
+                {
+                    System.IO.File.WriteAllText(saveFileDialog.FileName, reportContent.ToString());
+                    MessageBox.Show($"Rapor başarıyla kaydedildi: {saveFileDialog.FileName}", "Bilgi", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Rapor kaydedilirken bir hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
         }
 
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
