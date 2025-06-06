@@ -10,6 +10,14 @@
              mc:Ignorable="d"
              d:DesignHeight="700" d:DesignWidth="1000"
              d:DataContext="{d:DesignInstance Type=viewModels:SalesViewModel}">
+    
+    <UserControl.Resources>
+        <converters:PaymentMethodConverter x:Key="PaymentMethodConverter"/>
+        <converters:PaymentTypeConverter x:Key="PaymentTypeConverter"/>
+        <converters:PaymentTypeToVisibilityConverter x:Key="PaymentTypeToVisibilityConverter"/>
+        <converters:EnumToBooleanConverter x:Key="EnumToBooleanConverter"/>
+    </UserControl.Resources>
+    
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -254,9 +262,11 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         
                         <TextBox Grid.Column="0"
+                               x:Name="ProductSearchBox"
                                Text="{Binding ProductSearchText, UpdateSourceTrigger=PropertyChanged}"
                                materialDesign:HintAssist.Hint="Ürün Ara"
                                Style="{StaticResource MaterialDesignOutlinedTextBox}">
@@ -265,14 +275,22 @@
                             </TextBox.InputBindings>
                         </TextBox>
                         
-                        <TextBox Grid.Column="1"
+                        <Button Grid.Column="1"
+                              Command="{Binding SearchProductCommand}"
+                              Style="{StaticResource MaterialDesignIconButton}"
+                              ToolTip="Ürün Ara"
+                              Margin="8 0 0 0">
+                            <materialDesign:PackIcon Kind="Magnify" />
+                        </Button>
+                        
+                        <TextBox Grid.Column="2"
                                Text="{Binding Quantity}"
                                materialDesign:HintAssist.Hint="Miktar"
                                Style="{StaticResource MaterialDesignOutlinedTextBox}"
                                Width="100"
-                               Margin="16 0 16 0"/>
+                               Margin="8 0 8 0"/>
                         
-                        <Button Grid.Column="2"
+                        <Button Grid.Column="3"
                               Command="{Binding AddProductToSaleCommand}"
                               Style="{StaticResource MaterialDesignRaisedButton}"
                               Content="Ekle"/>
@@ -302,12 +320,15 @@
                                             <TextBlock Grid.Column="1" 
                                                      Text="{Binding Price, StringFormat={}{0:C2}}"
                                                      VerticalAlignment="Center"/>
-                                            <Grid.InputBindings>
-                                                <MouseBinding MouseAction="LeftClick" 
-                                                           Command="{Binding DataContext.SelectProductCommand, 
-                                                                    RelativeSource={RelativeSource AncestorType=ListView}}"
-                                                           CommandParameter="{Binding}"/>
-                                            </Grid.InputBindings>
+                                            <Button Command="{Binding DataContext.SelectProductCommand, 
+                                                            RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                  CommandParameter="{Binding}"
+                                                  Content="Seç"
+                                                  Style="{StaticResource MaterialDesignFlatButton}"
+                                                  HorizontalAlignment="Right"
+                                                  VerticalAlignment="Bottom"
+                                                  Margin="0 8 0 0"
+                                                  Grid.ColumnSpan="2"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ListView.ItemTemplate>

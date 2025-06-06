@@ -581,6 +581,7 @@ namespace Nethesap.UI.ViewModels
                 PaymentType = PaymentType.Refund,
                 Description = $"İade - {SelectedSale.Id}",
                 TotalAmount = -SelectedSale.TotalAmount,
+                CreatedDate = DateTime.Now,
                 PaymentItems = new List<PaymentItem>()
             };
 
@@ -631,13 +632,13 @@ namespace Nethesap.UI.ViewModels
             if (StartDate.HasValue)
             {
                 var startDate = StartDate.Value.Date;
-                filteredSales = filteredSales.Where(s => s.Id.GetHashCode() >= startDate.GetHashCode());
+                filteredSales = filteredSales.Where(s => s.CreatedDate.Date >= startDate);
             }
 
             if (EndDate.HasValue)
             {
                 var endDate = EndDate.Value.Date.AddDays(1).AddSeconds(-1);
-                filteredSales = filteredSales.Where(s => s.Id.GetHashCode() <= endDate.GetHashCode());
+                filteredSales = filteredSales.Where(s => s.CreatedDate <= endDate);
             }
 
             // Filter by payment method
