@@ -13,6 +13,7 @@ namespace Nethesap.Domain.Entities
         public PaymentMethod PaymentMethod { get; set; }
         public PaymentType PaymentType { get; set; }
         public string Description { get; set; }
+        public DateTime CreatedDate { get; set; }
         public virtual ICollection<PaymentItem> PaymentItems { get; set; }
     }
 

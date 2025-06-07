@@ -111,13 +111,13 @@ namespace Nethesap.UI.ViewModels
 
         public void NavigateToSales()
         {
-            CurrentView = new SalesView();
+            CurrentView = new SalesView { DataContext = new SalesViewModel() };
             CurrentViewTitle = "Satışlar";
         }
 
         public void NavigateToAccounts()
         {
-            CurrentView = new AccountsView();
+            CurrentView = new AccountsView { DataContext = new AccountsViewModel() };
             CurrentViewTitle = "Hesaplar";
         }
 

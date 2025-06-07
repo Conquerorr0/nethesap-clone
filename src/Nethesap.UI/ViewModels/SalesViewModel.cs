@@ -21,6 +21,8 @@ namespace Nethesap.UI.ViewModels
         private bool _isNewSaleDialogOpen;
         private bool _isRefundDialogOpen;
         private bool _isProductSearchOpen;
+        private bool _isSaleDetailsDialogOpen;
+        private bool _isCustomerSearchOpen;
         
         private Product _selectedProduct;
         private Customer _selectedCustomer;
@@ -47,6 +49,11 @@ namespace Nethesap.UI.ViewModels
         private ICommand _cancelRefundCommand;
         private ICommand _filterSalesCommand;
         private ICommand _resetFilterCommand;
+        private ICommand _viewSaleDetailsCommand;
+        private ICommand _closeSaleDetailsCommand;
+        private ICommand _generateReportCommand;
+        private ICommand _searchCustomerCommand;
+        private ICommand _selectCustomerCommand;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -133,6 +140,26 @@ namespace Nethesap.UI.ViewModels
             }
         }
 
+        public bool IsSaleDetailsDialogOpen
+        {
+            get => _isSaleDetailsDialogOpen;
+            set
+            {
+                _isSaleDetailsDialogOpen = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IsCustomerSearchOpen
+        {
+            get => _isCustomerSearchOpen;
+            set
+            {
+                _isCustomerSearchOpen = value;
+                OnPropertyChanged();
+            }
+        }
+
         public Product SelectedProduct
         {
             get => _selectedProduct;
@@ -154,6 +181,7 @@ namespace Nethesap.UI.ViewModels
             {
                 _selectedCustomer = value;
                 OnPropertyChanged();
+                
                 if (value != null && CurrentSale != null)
                 {
                     CurrentSale.CustomerId = value.Id;
@@ -202,17 +230,6 @@ namespace Nethesap.UI.ViewModels
             }
         }
 
-        public string ProductSearchText
-        {
-            get => _productSearchText;
-            set
-            {
-                _productSearchText = value;
-                OnPropertyChanged();
-                SearchProducts();
-            }
-        }
-
         public string CustomerSearchText
         {
             get => _customerSearchText;
@@ -220,7 +237,87 @@ namespace Nethesap.UI.ViewModels
             {
                 _customerSearchText = value;
                 OnPropertyChanged();
-                SearchCustomers();
+                
+                try
+                {
+                    // Arama işlemi için _customers kontrolü
+                    if (_customers == null || _customers.Count == 0)
+                    {
+                        LoadSampleData();
+                    }
+                    
+                    // Her değişiklikte müşterileri filtrele
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        // Arama için string'leri küçük harfe çevir (case-insensitive)
+                        var searchText = value.ToLower();
+                        
+                        var filtered = _customers.Where(c =>
+                            c.FirstName?.ToLower().Contains(searchText) == true ||
+                            c.LastName?.ToLower().Contains(searchText) == true ||
+                            c.Phone?.ToLower().Contains(searchText) == true ||
+                            c.Email?.ToLower().Contains(searchText) == true).ToList();
+                        
+                        Customers = new ObservableCollection<Customer>(filtered);
+                    }
+                    else
+                    {
+                        // Boş metin ise tüm müşterileri göster
+                        Customers = new ObservableCollection<Customer>(_customers);
+                    }
+                    
+                    // Popup'ı her durumda aç
+                    IsCustomerSearchOpen = true;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Müşteri aramada hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        public string ProductSearchText
+        {
+            get => _productSearchText;
+            set
+            {
+                _productSearchText = value;
+                OnPropertyChanged();
+                
+                try
+                {
+                    // Arama işlemi için _products kontrolü
+                    if (_products == null || _products.Count == 0)
+                    {
+                        LoadSampleData();
+                    }
+                    
+                    // Her değişiklikte ürünleri filtrele
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        // Arama için string'leri küçük harfe çevir (case-insensitive)
+                        var searchText = value.ToLower();
+                        
+                        var filtered = _products.Where(p =>
+                            p.Name?.ToLower().Contains(searchText) == true ||
+                            p.Description?.ToLower().Contains(searchText) == true ||
+                            p.Barcode?.ToLower().Contains(searchText) == true).ToList();
+                        
+                        Products = new ObservableCollection<Product>(filtered);
+                    }
+                    else
+                    {
+                        // Boş metin ise tüm ürünleri göster
+                        Products = new ObservableCollection<Product>(_products);
+                    }
+                    
+                    // Popup'ı her durumda aç
+                    IsProductSearchOpen = true;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ürün aramada hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
@@ -269,12 +366,36 @@ namespace Nethesap.UI.ViewModels
         public ICommand CancelRefundCommand => _cancelRefundCommand ??= new RelayCommand(CancelRefund);
         public ICommand FilterSalesCommand => _filterSalesCommand ??= new RelayCommand(FilterSales);
         public ICommand ResetFilterCommand => _resetFilterCommand ??= new RelayCommand(ResetFilter);
+        public ICommand ViewSaleDetailsCommand => _viewSaleDetailsCommand ??= new RelayCommand<Payment>(ViewSaleDetails);
+        public ICommand CloseSaleDetailsCommand => _closeSaleDetailsCommand ??= new RelayCommand(CloseSaleDetails);
+        public ICommand GenerateReportCommand => _generateReportCommand ??= new RelayCommand(GenerateReport);
+        public ICommand SearchCustomerCommand => _searchCustomerCommand ??= new RelayCommand(OpenCustomerSearch);
+        public ICommand SelectCustomerCommand => _selectCustomerCommand ??= new RelayCommand<Customer>(SelectCustomer);
 
         // Constructor
         public SalesViewModel()
         {
-            LoadSampleData();
+            // Listeleri ilk olarak burada başlat
+            _sales = new ObservableCollection<Payment>();
+            Sales = new ObservableCollection<Payment>();
+            _filteredSales = new ObservableCollection<Payment>();
+            FilteredSales = new ObservableCollection<Payment>();
+            
+            _products = new ObservableCollection<Product>();
+            Products = new ObservableCollection<Product>();
+            
+            _customers = new ObservableCollection<Customer>();
+            Customers = new ObservableCollection<Customer>();
+            
+            _currentSaleItems = new ObservableCollection<PaymentItem>();
             CurrentSaleItems = new ObservableCollection<PaymentItem>();
+            
+            _productSearchText = string.Empty;
+            _customerSearchText = string.Empty;
+            
+            // Sonra örnek verileri yükle
+            LoadSampleData();
+
             StartDate = DateTime.Now.AddMonths(-1);
             EndDate = DateTime.Now;
         }
@@ -282,94 +403,105 @@ namespace Nethesap.UI.ViewModels
         // Methods
         private void LoadSampleData()
         {
-            // Sample customers
-            Customers = new ObservableCollection<Customer>
+            try
             {
-                new Customer { Id = Guid.NewGuid(), FirstName = "Ahmet", LastName = "Yılmaz", Phone = "555-123-4567", Email = "ahmet@example.com" },
-                new Customer { Id = Guid.NewGuid(), FirstName = "Mehmet", LastName = "Kaya", Phone = "555-234-5678", Email = "mehmet@example.com" },
-                new Customer { Id = Guid.NewGuid(), FirstName = "Ayşe", LastName = "Demir", Phone = "555-345-6789", Email = "ayse@example.com" }
-            };
-
-            // Sample products
-            Products = new ObservableCollection<Product>
-            {
-                new Product { Id = Guid.NewGuid(), Name = "Laptop", Description = "Oyun Bilgisayarı", Price = 25000.00m, StockQuantity = 10 },
-                new Product { Id = Guid.NewGuid(), Name = "Telefon", Description = "Akıllı Telefon", Price = 15000.00m, StockQuantity = 20 },
-                new Product { Id = Guid.NewGuid(), Name = "Klavye", Description = "Mekanik Klavye", Price = 1200.00m, StockQuantity = 50 },
-                new Product { Id = Guid.NewGuid(), Name = "Mouse", Description = "Gaming Mouse", Price = 800.00m, StockQuantity = 30 },
-                new Product { Id = Guid.NewGuid(), Name = "Monitor", Description = "27\" 4K Monitor", Price = 8000.00m, StockQuantity = 15 }
-            };
-
-            // Sample sales
-            var sales = new List<Payment>();
-            var random = new Random();
-
-            for (int i = 0; i < 10; i++)
-            {
-                var customer = Customers[random.Next(Customers.Count)];
-                var paymentMethod = (PaymentMethod)random.Next(Enum.GetValues(typeof(PaymentMethod)).Length);
-                var date = DateTime.Now.AddDays(-random.Next(1, 30));
-
-                var payment = new Payment
+                // Sample customers
+                var customersList = new List<Customer>
                 {
-                    Id = Guid.NewGuid(),
-                    CustomerId = customer.Id,
-                    Customer = customer,
-                    PaymentMethod = paymentMethod,
-                    PaymentType = PaymentType.Sale,
-                    Description = "Örnek satış",
-                    PaymentItems = new List<PaymentItem>()
+                    new Customer { Id = Guid.NewGuid(), FirstName = "Ahmet", LastName = "Yılmaz", Phone = "555-123-4567", Email = "ahmet@example.com" },
+                    new Customer { Id = Guid.NewGuid(), FirstName = "Mehmet", LastName = "Kaya", Phone = "555-234-5678", Email = "mehmet@example.com" },
+                    new Customer { Id = Guid.NewGuid(), FirstName = "Ayşe", LastName = "Demir", Phone = "555-345-6789", Email = "ayse@example.com" }
                 };
-
-                var totalAmount = 0m;
-                var itemCount = random.Next(1, 4);
-
-                for (int j = 0; j < itemCount; j++)
+                
+                // Sample products
+                var productsList = new List<Product>
                 {
-                    var product = Products[random.Next(Products.Count)];
-                    var quantity = random.Next(1, 5);
-                    var unitPrice = product.Price;
-                    var totalPrice = unitPrice * quantity;
-
-                    var paymentItem = new PaymentItem
-                    {
-                        Id = Guid.NewGuid(),
-                        PaymentId = payment.Id,
-                        Payment = payment,
-                        ProductId = product.Id,
-                        Product = product,
-                        Quantity = quantity,
-                        UnitPrice = unitPrice,
-                        TotalPrice = totalPrice
-                    };
-
-                    payment.PaymentItems.Add(paymentItem);
-                    totalAmount += totalPrice;
+                    new Product { Id = Guid.NewGuid(), Name = "Laptop", Description = "Yüksek performanslı dizüstü bilgisayar", Price = 12000, Barcode = "PRD-001", StockQuantity = 10 },
+                    new Product { Id = Guid.NewGuid(), Name = "Tablet", Description = "Kompakt tablet bilgisayar", Price = 5000, Barcode = "PRD-002", StockQuantity = 15 },
+                    new Product { Id = Guid.NewGuid(), Name = "Akıllı Telefon", Description = "Son model akıllı telefon", Price = 8000, Barcode = "PRD-003", StockQuantity = 20 }
+                };
+                
+                // Sample sales
+                var salesList = new List<Payment>
+                {
+                    new Payment { Id = Guid.NewGuid(), PaymentType = PaymentType.Sale, PaymentMethod = PaymentMethod.Cash, TotalAmount = 12000, CreatedDate = DateTime.Now.AddDays(-5) },
+                    new Payment { Id = Guid.NewGuid(), PaymentType = PaymentType.Sale, PaymentMethod = PaymentMethod.CreditCard, TotalAmount = 5000, CreatedDate = DateTime.Now.AddDays(-3) },
+                    new Payment { Id = Guid.NewGuid(), PaymentType = PaymentType.Sale, PaymentMethod = PaymentMethod.BankTransfer, TotalAmount = 8000, CreatedDate = DateTime.Now.AddDays(-1) }
+                };
+                
+                // Listeleri temizle ve yeniden doldur
+                _customers.Clear();
+                foreach (var customer in customersList)
+                {
+                    _customers.Add(customer);
                 }
-
-                payment.TotalAmount = totalAmount;
-                sales.Add(payment);
+                
+                _products.Clear();
+                foreach (var product in productsList)
+                {
+                    _products.Add(product);
+                }
+                
+                _sales.Clear();
+                foreach (var sale in salesList)
+                {
+                    _sales.Add(sale);
+                }
+                
+                // Observable koleksiyonları güncelle
+                Customers = new ObservableCollection<Customer>(_customers);
+                Products = new ObservableCollection<Product>(_products);
+                Sales = new ObservableCollection<Payment>(_sales);
+                FilteredSales = new ObservableCollection<Payment>(_sales);
             }
-
-            Sales = new ObservableCollection<Payment>(sales.OrderByDescending(s => s.Id));
-            FilteredSales = new ObservableCollection<Payment>(Sales);
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Örnek veri yüklenirken hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void OpenNewSaleDialog(object obj)
         {
-            CurrentSale = new Payment
+            try
             {
-                Id = Guid.NewGuid(),
-                PaymentType = PaymentType.Sale,
-                PaymentMethod = PaymentMethod.Cash,
-                PaymentItems = new List<PaymentItem>()
-            };
-            
-            CurrentSaleItems.Clear();
-            SelectedCustomer = null;
-            CustomerSearchText = string.Empty;
-            
-            IsNewSaleDialogOpen = true;
+                // Yeni satış oluştur
+                CurrentSale = new Payment
+                {
+                    Id = Guid.NewGuid(),
+                    PaymentType = PaymentType.Sale,
+                    PaymentMethod = PaymentMethod.Cash,
+                    CreatedDate = DateTime.Now,
+                    PaymentItems = new List<PaymentItem>()
+                };
+                
+                // Veri listelerini yeniden başlat
+                if (CurrentSaleItems == null)
+                    CurrentSaleItems = new ObservableCollection<PaymentItem>();
+                else
+                    CurrentSaleItems.Clear();
+                    
+                // Seçimleri temizle
+                SelectedCustomer = null;
+                SelectedProduct = null;
+                
+                // Arama kutularını temizle
+                _customerSearchText = string.Empty;
+                OnPropertyChanged(nameof(CustomerSearchText));
+                
+                _productSearchText = string.Empty;
+                OnPropertyChanged(nameof(ProductSearchText));
+                
+                // Popup'ları kapat
+                IsCustomerSearchOpen = false;
+                IsProductSearchOpen = false;
+                
+                // Dialog'u göster
+                IsNewSaleDialogOpen = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Yeni satış ekranı açılırken hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void SaveSale(object obj)
@@ -480,51 +612,115 @@ namespace Nethesap.UI.ViewModels
 
         private void OpenProductSearch(object obj)
         {
-            ProductSearchText = string.Empty;
-            SearchProducts();
-            IsProductSearchOpen = true;
+            try
+            {
+                // Ürün listesini sıfırla ve arama sonuçlarını göster
+                if (string.IsNullOrWhiteSpace(ProductSearchText))
+                {
+                    // Boş ise tüm ürünleri göster
+                    if (_products != null)
+                        Products = new ObservableCollection<Product>(_products);
+                }
+                else
+                {
+                    // Zaten metin varsa arama yap
+                    SearchProducts();
+                }
+                
+                // Popup'ı göster - popup her zaman açılsın
+                IsProductSearchOpen = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ürün arama sırasında hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void SelectProduct(Product product)
         {
-            SelectedProduct = product;
-            ProductSearchText = product.Name;
-            IsProductSearchOpen = false;
+            try
+            {
+                if (product != null)
+                {
+                    SelectedProduct = product;
+                    
+                    // ProductSearchText'i ürün bilgisiyle doldur ama arama yapmaması için
+                    _productSearchText = product.Name;
+                    OnPropertyChanged(nameof(ProductSearchText));
+                    
+                    // Popup'ı kapat
+                    IsProductSearchOpen = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ürün seçimi sırasında hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void SearchProducts()
         {
-            if (string.IsNullOrWhiteSpace(ProductSearchText))
+            try
             {
-                Products = new ObservableCollection<Product>(_products);
-                return;
+                if (_products == null)
+                {
+                    // _products null ise oluştur
+                    LoadSampleData();
+                }
+                    
+                if (string.IsNullOrWhiteSpace(ProductSearchText))
+                {
+                    Products = new ObservableCollection<Product>(_products);
+                    IsProductSearchOpen = true;  // Her durumda popup'ı aç
+                    return;
+                }
+
+                var filteredProducts = _products.Where(p =>
+                    p.Name.Contains(ProductSearchText, StringComparison.OrdinalIgnoreCase) ||
+                    p.Description.Contains(ProductSearchText, StringComparison.OrdinalIgnoreCase) ||
+                    p.Barcode?.Contains(ProductSearchText, StringComparison.OrdinalIgnoreCase) == true)
+                    .ToList();
+
+                Products = new ObservableCollection<Product>(filteredProducts);
+                IsProductSearchOpen = true;  // Her durumda popup'ı aç
             }
-
-            var filteredProducts = _products.Where(p =>
-                p.Name.Contains(ProductSearchText, StringComparison.OrdinalIgnoreCase) ||
-                p.Description.Contains(ProductSearchText, StringComparison.OrdinalIgnoreCase) ||
-                p.Barcode?.Contains(ProductSearchText, StringComparison.OrdinalIgnoreCase) == true)
-                .ToList();
-
-            Products = new ObservableCollection<Product>(filteredProducts);
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ürün filtrelemede hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void SearchCustomers()
         {
-            if (string.IsNullOrWhiteSpace(CustomerSearchText))
+            try
             {
-                Customers = new ObservableCollection<Customer>(_customers);
-                return;
+                if (_customers == null)
+                {
+                    // _customers null ise oluştur
+                    LoadSampleData();
+                }
+                    
+                if (string.IsNullOrWhiteSpace(CustomerSearchText))
+                {
+                    Customers = new ObservableCollection<Customer>(_customers);
+                    IsCustomerSearchOpen = true;  // Her durumda popup'ı aç
+                    return;
+                }
+
+                var filteredCustomers = _customers.Where(c =>
+                    c.FirstName.Contains(CustomerSearchText, StringComparison.OrdinalIgnoreCase) ||
+                    c.LastName.Contains(CustomerSearchText, StringComparison.OrdinalIgnoreCase) ||
+                    c.Phone.Contains(CustomerSearchText, StringComparison.OrdinalIgnoreCase) ||
+                    c.Email?.Contains(CustomerSearchText, StringComparison.OrdinalIgnoreCase) == true)
+                    .ToList();
+
+                Customers = new ObservableCollection<Customer>(filteredCustomers);
+                IsCustomerSearchOpen = true;  // Her durumda popup'ı aç
             }
-
-            var filteredCustomers = _customers.Where(c =>
-                c.FirstName.Contains(CustomerSearchText, StringComparison.OrdinalIgnoreCase) ||
-                c.LastName.Contains(CustomerSearchText, StringComparison.OrdinalIgnoreCase) ||
-                c.Phone.Contains(CustomerSearchText, StringComparison.OrdinalIgnoreCase) ||
-                c.Email?.Contains(CustomerSearchText, StringComparison.OrdinalIgnoreCase) == true)
-                .ToList();
-
-            Customers = new ObservableCollection<Customer>(filteredCustomers);
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Müşteri filtrelemede hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void CalculateTotalAmount()
@@ -562,6 +758,7 @@ namespace Nethesap.UI.ViewModels
                 PaymentType = PaymentType.Refund,
                 Description = $"İade - {SelectedSale.Id}",
                 TotalAmount = -SelectedSale.TotalAmount,
+                CreatedDate = DateTime.Now,
                 PaymentItems = new List<PaymentItem>()
             };
 
@@ -612,13 +809,13 @@ namespace Nethesap.UI.ViewModels
             if (StartDate.HasValue)
             {
                 var startDate = StartDate.Value.Date;
-                filteredSales = filteredSales.Where(s => s.Id.GetHashCode() >= startDate.GetHashCode());
+                filteredSales = filteredSales.Where(s => s.CreatedDate.Date >= startDate);
             }
 
             if (EndDate.HasValue)
             {
                 var endDate = EndDate.Value.Date.AddDays(1).AddSeconds(-1);
-                filteredSales = filteredSales.Where(s => s.Id.GetHashCode() <= endDate.GetHashCode());
+                filteredSales = filteredSales.Where(s => s.CreatedDate <= endDate);
             }
 
             // Filter by payment method
@@ -636,6 +833,160 @@ namespace Nethesap.UI.ViewModels
             EndDate = DateTime.Now;
             FilterPaymentMethod = null;
             FilterSales(null);
+        }
+
+        private void ViewSaleDetails(Payment sale)
+        {
+            if (sale != null)
+            {
+                SelectedSale = sale;
+                IsSaleDetailsDialogOpen = true;
+            }
+        }
+
+        private void CloseSaleDetails(object obj)
+        {
+            IsSaleDetailsDialogOpen = false;
+        }
+
+        private void GenerateReport(object obj)
+        {
+            if (FilteredSales == null || FilteredSales.Count == 0)
+            {
+                MessageBox.Show("Rapor oluşturmak için satış verisi bulunamadı.", "Bilgi", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            
+            var reportContent = new System.Text.StringBuilder();
+            reportContent.AppendLine("NETHESAP - SATIŞ RAPORU");
+            reportContent.AppendLine("=======================");
+            reportContent.AppendLine();
+            
+            // Filtreleme bilgileri
+            reportContent.AppendLine($"Rapor Tarihi: {DateTime.Now:dd.MM.yyyy HH:mm}");
+            
+            if (StartDate.HasValue)
+                reportContent.AppendLine($"Başlangıç Tarihi: {StartDate:dd.MM.yyyy}");
+            
+            if (EndDate.HasValue)
+                reportContent.AppendLine($"Bitiş Tarihi: {EndDate:dd.MM.yyyy}");
+            
+            if (FilterPaymentMethod.HasValue)
+                reportContent.AppendLine($"Ödeme Yöntemi: {FilterPaymentMethod}");
+            
+            reportContent.AppendLine();
+            reportContent.AppendLine($"Toplam Satış Adedi: {FilteredSales.Count}");
+            reportContent.AppendLine($"Toplam Satış Tutarı: {FilteredSales.Sum(s => s.TotalAmount):C2}");
+            reportContent.AppendLine();
+            
+            // Ödeme yöntemine göre gruplandırma
+            var paymentMethodGroups = FilteredSales.GroupBy(s => s.PaymentMethod);
+            reportContent.AppendLine("ÖDEME YÖNTEMİNE GÖRE SATIŞLAR");
+            reportContent.AppendLine("----------------------------");
+            
+            foreach (var group in paymentMethodGroups)
+            {
+                string paymentMethodName = group.Key.ToString();
+                switch (group.Key)
+                {
+                    case PaymentMethod.Cash:
+                        paymentMethodName = "Nakit";
+                        break;
+                    case PaymentMethod.CreditCard:
+                        paymentMethodName = "Kredi Kartı";
+                        break;
+                    case PaymentMethod.BankTransfer:
+                        paymentMethodName = "Havale";
+                        break;
+                }
+                
+                reportContent.AppendLine($"{paymentMethodName}: {group.Count()} adet, {group.Sum(s => s.TotalAmount):C2}");
+            }
+            
+            reportContent.AppendLine();
+            reportContent.AppendLine("SATIŞ LİSTESİ");
+            reportContent.AppendLine("------------");
+            
+            foreach (var sale in FilteredSales)
+            {
+                reportContent.AppendLine($"Tarih: {sale.CreatedDate:dd.MM.yyyy HH:mm}, Müşteri: {sale.Customer.FirstName} {sale.Customer.LastName}, Tutar: {sale.TotalAmount:C2}");
+            }
+            
+            // Raporu bir dosyaya kaydetmek için SaveFileDialog kullanımı
+            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "Text dosyaları (*.txt)|*.txt|Tüm dosyalar (*.*)|*.*",
+                DefaultExt = "txt",
+                FileName = $"Nethesap_Satis_Raporu_{DateTime.Now:yyyyMMdd_HHmmss}"
+            };
+            
+            if (saveFileDialog.ShowDialog() == true)
+            {
+                try
+                {
+                    System.IO.File.WriteAllText(saveFileDialog.FileName, reportContent.ToString());
+                    MessageBox.Show($"Rapor başarıyla kaydedildi: {saveFileDialog.FileName}", "Bilgi", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Rapor kaydedilirken bir hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void OpenCustomerSearch(object obj)
+        {
+            try
+            {
+                // Ürün listesini sıfırla ve arama sonuçlarını göster
+                if (string.IsNullOrWhiteSpace(CustomerSearchText))
+                {
+                    // Boş ise tüm müşterileri göster
+                    if (_customers != null)
+                        Customers = new ObservableCollection<Customer>(_customers);
+                }
+                else
+                {
+                    // Zaten metin varsa arama yap
+                    SearchCustomers();
+                }
+                
+                // Popup'ı göster - popup her zaman açılsın
+                IsCustomerSearchOpen = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Müşteri arama sırasında hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void SelectCustomer(Customer customer)
+        {
+            try
+            {
+                if (customer != null)
+                {
+                    SelectedCustomer = customer;
+                    
+                    // CustomerSearchText'i müşteri bilgisiyle doldur ama arama yapmaması için
+                    _customerSearchText = $"{customer.FirstName} {customer.LastName}";
+                    OnPropertyChanged(nameof(CustomerSearchText));
+                    
+                    // Satış bilgisini güncelle
+                    if (CurrentSale != null)
+                    {
+                        CurrentSale.CustomerId = customer.Id;
+                        CurrentSale.Customer = customer;
+                    }
+                    
+                    // Popup'ı kapat
+                    IsCustomerSearchOpen = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Müşteri seçimi sırasında hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
