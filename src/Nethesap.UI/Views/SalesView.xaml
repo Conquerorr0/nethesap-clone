@@ -16,6 +16,7 @@
         <converters:PaymentTypeConverter x:Key="PaymentTypeConverter"/>
         <converters:PaymentTypeToVisibilityConverter x:Key="PaymentTypeToVisibilityConverter"/>
         <converters:EnumToBooleanConverter x:Key="EnumToBooleanConverter"/>
+        <converters:StringNotEmptyToBoolConverter x:Key="StringNotEmptyToBoolConverter"/>
     </UserControl.Resources>
     
     <Grid Margin="16">
@@ -232,29 +233,75 @@
                         </Grid.ColumnDefinitions>
                         
                         <TextBox Grid.Column="0"
+                               x:Name="CustomerSearchBox"
                                Text="{Binding CustomerSearchText, UpdateSourceTrigger=PropertyChanged}"
                                materialDesign:HintAssist.Hint="Müşteri Ara"
-                               Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                               Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                               TextChanged="CustomerSearchBox_TextChanged">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding SearchCustomerCommand}"/>
+                            </TextBox.InputBindings>
+                        </TextBox>
                         
-                        <ComboBox Grid.Column="1"
-                                 ItemsSource="{Binding Customers}"
-                                 SelectedItem="{Binding SelectedCustomer}"
-                                 materialDesign:HintAssist.Hint="Müşteri Seç"
-                                 Style="{StaticResource MaterialDesignOutlinedComboBox}"
-                                 Width="200"
-                                 Margin="16 0 0 0">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock>
-                                        <Run Text="{Binding FirstName}"/>
-                                        <Run Text="{Binding LastName}"/>
-                                        <Run Text=" - "/>
-                                        <Run Text="{Binding Phone}"/>
-                                    </TextBlock>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
+                        <Button Grid.Column="1"
+                              Command="{Binding SearchCustomerCommand}"
+                              Style="{StaticResource MaterialDesignIconButton}"
+                              ToolTip="Müşteri Ara"
+                              Margin="8 0 0 0">
+                            <materialDesign:PackIcon Kind="Magnify" />
+                        </Button>
                     </Grid>
+                    
+                    <!-- Customer Search Popup -->
+                    <Popup IsOpen="{Binding IsCustomerSearchOpen}" 
+                         PlacementTarget="{Binding ElementName=CustomerSearchBox}" 
+                         Placement="Bottom" 
+                         Width="{Binding ElementName=CustomerSearchBox, Path=ActualWidth}"
+                         MaxHeight="400"
+                         StaysOpen="False"
+                         AllowsTransparency="True">
+                        <materialDesign:Card Padding="0" Margin="0">
+                            <ListView ItemsSource="{Binding Customers}"
+                                    SelectionMode="Single"
+                                    MaxHeight="400">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderThickness="0 0 0 1" BorderBrush="{DynamicResource MaterialDesignDivider}" Padding="8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                
+                                                <TextBlock Grid.Row="0" Grid.Column="0" 
+                                                         Text="{Binding FirstName, StringFormat='{}{0} '}" 
+                                                         FontWeight="Medium">
+                                                    <TextBlock.Inlines>
+                                                        <Run Text="{Binding LastName}"/>
+                                                    </TextBlock.Inlines>
+                                                </TextBlock>
+                                                
+                                                <TextBlock Grid.Row="1" Grid.Column="0" 
+                                                         Text="{Binding Phone}" 
+                                                         Opacity="0.7"/>
+                                                
+                                                <Button Grid.Row="0" Grid.Column="1" Grid.RowSpan="2"
+                                                      Command="{Binding DataContext.SelectCustomerCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                      CommandParameter="{Binding}"
+                                                      Content="Seç"
+                                                      Style="{StaticResource MaterialDesignFlatButton}"
+                                                      VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </materialDesign:Card>
+                    </Popup>
                     
                     <!-- Product Selection -->
                     <Grid Grid.Row="2" Margin="16 0 16 16">
@@ -269,7 +316,8 @@
                                x:Name="ProductSearchBox"
                                Text="{Binding ProductSearchText, UpdateSourceTrigger=PropertyChanged}"
                                materialDesign:HintAssist.Hint="Ürün Ara"
-                               Style="{StaticResource MaterialDesignOutlinedTextBox}">
+                               Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                               TextChanged="ProductSearchBox_TextChanged">
                             <TextBox.InputBindings>
                                 <KeyBinding Key="Enter" Command="{Binding SearchProductCommand}"/>
                             </TextBox.InputBindings>
@@ -300,36 +348,64 @@
                     <Popup IsOpen="{Binding IsProductSearchOpen}" 
                          PlacementTarget="{Binding ElementName=ProductSearchBox}" 
                          Placement="Bottom" 
-                         Width="400" 
-                         MaxHeight="300"
-                         StaysOpen="False">
-                        <materialDesign:Card>
+                         Width="{Binding ElementName=ProductSearchBox, Path=ActualWidth}"
+                         MaxHeight="400"
+                         StaysOpen="False"
+                         AllowsTransparency="True">
+                        <materialDesign:Card Padding="0" Margin="0">
                             <ListView ItemsSource="{Binding Products}"
-                                    SelectionMode="Single">
+                                    SelectionMode="Single"
+                                    MaxHeight="400">
                                 <ListView.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid Margin="8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0">
-                                                <TextBlock Text="{Binding Name}" FontWeight="Bold"/>
-                                                <TextBlock Text="{Binding Description}" Opacity="0.7"/>
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="1" 
-                                                     Text="{Binding Price, StringFormat={}{0:C2}}"
-                                                     VerticalAlignment="Center"/>
-                                            <Button Command="{Binding DataContext.SelectProductCommand, 
-                                                            RelativeSource={RelativeSource AncestorType=ListView}}"
-                                                  CommandParameter="{Binding}"
-                                                  Content="Seç"
-                                                  Style="{StaticResource MaterialDesignFlatButton}"
-                                                  HorizontalAlignment="Right"
-                                                  VerticalAlignment="Bottom"
-                                                  Margin="0 8 0 0"
-                                                  Grid.ColumnSpan="2"/>
-                                        </Grid>
+                                        <Border BorderThickness="0 0 0 1" BorderBrush="{DynamicResource MaterialDesignDivider}" Padding="8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                
+                                                <TextBlock Grid.Column="0" Grid.Row="0" 
+                                                         Text="{Binding Name}" 
+                                                         FontWeight="Medium" 
+                                                         Margin="0 0 0 4"/>
+                                                  
+                                                <TextBlock Grid.Column="0" Grid.Row="1" 
+                                                          Text="{Binding Description}" 
+                                                          TextWrapping="Wrap"
+                                                          Opacity="0.7" 
+                                                          MaxWidth="300"/>
+                                                          
+                                                <StackPanel Grid.Row="2" Grid.Column="0" 
+                                                           Orientation="Horizontal" 
+                                                           Margin="0 4 0 0">
+                                                    <TextBlock Text="Stok: " 
+                                                              Opacity="0.7"/>
+                                                    <TextBlock Text="{Binding StockQuantity}"
+                                                              Opacity="0.7"/>
+                                                </StackPanel>
+                                                 
+                                                <TextBlock Grid.Row="0" Grid.Column="1" Grid.RowSpan="3"
+                                                          Text="{Binding Price, StringFormat={}{0:C2}}"
+                                                           VerticalAlignment="Center"
+                                                           FontWeight="Medium"
+                                                           Margin="16 0 0 0"/>
+                                                           
+                                                <Button Grid.Row="0" Grid.Column="2" Grid.RowSpan="3"
+                                                       Command="{Binding DataContext.SelectProductCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                       CommandParameter="{Binding}"
+                                                       Content="Seç"
+                                                       Style="{StaticResource MaterialDesignFlatButton}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="8 0 0 0"/>
+                                            </Grid>
+                                        </Border>
                                     </DataTemplate>
                                 </ListView.ItemTemplate>
                             </ListView>
