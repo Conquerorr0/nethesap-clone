@@ -93,24 +93,50 @@ public class DashboardViewModel : INotifyPropertyChanged
 
     public DashboardViewModel()
     {
-        LoadSampleData();
+        // Gerçek verileri yükle
+        LoadDataAsync();
         ChartFormatter = value => value.ToString("C0");
     }
 
-    private void LoadSampleData()
+    private async void LoadDataAsync()
     {
-        // Örnek bakiye verileri
-        TotalBalance = 125000.00m;
-        TotalReceivables = 75000.00m;
-        TotalPayables = 45000.00m;
+        try
+        {
+            // Varsayılan değerler
+            TotalBalance = 0;
+            TotalReceivables = 0;
+            TotalPayables = 0;
 
-        // Örnek grafik verileri
+            // Veritabanından son işlemleri al
+            // Not: Burada gerçek bir servis kullanılmalı
+            var transactions = new List<TransactionItem>();
+            
+            // Grafik verilerini hazırla
+            PrepareChartData(2); // Son 6 ay
+            
+            // Verileri UI'a bağla
+            RecentTransactions = new ObservableCollection<TransactionItem>(transactions);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Veri yükleme hatası: {ex.Message}");
+            // Hata durumunda boş koleksiyonlar oluştur
+            RecentTransactions = new ObservableCollection<TransactionItem>();
+            ChartSeries = new SeriesCollection();
+            ChartLabels = new string[0];
+        }
+    }
+
+    private void PrepareChartData(int periodIndex)
+    {
+        // Gerçek uygulamada burada seçilen döneme göre verileri yükleyeceğiz
+        // Şimdilik sadece varsayılan değerler
         ChartSeries = new SeriesCollection
         {
             new LineSeries
             {
                 Title = "Gelir",
-                Values = new ChartValues<double> { 65000, 85000, 78000, 92000, 88000, 95000 },
+                Values = new ChartValues<double> { 0, 0, 0, 0, 0, 0 },
                 PointGeometry = DefaultGeometries.Circle,
                 PointGeometrySize = 10,
                 LineSmoothness = 0.3,
@@ -120,7 +146,7 @@ public class DashboardViewModel : INotifyPropertyChanged
             new LineSeries
             {
                 Title = "Gider",
-                Values = new ChartValues<double> { 45000, 42000, 55000, 48000, 58000, 62000 },
+                Values = new ChartValues<double> { 0, 0, 0, 0, 0, 0 },
                 PointGeometry = DefaultGeometries.Square,
                 PointGeometrySize = 10,
                 LineSmoothness = 0.3,
@@ -129,72 +155,25 @@ public class DashboardViewModel : INotifyPropertyChanged
             }
         };
 
-        ChartLabels = new[] { "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran" };
-
-        // Örnek işlem verileri
-        RecentTransactions = new ObservableCollection<TransactionItem>
-        {
-            new TransactionItem 
-            { 
-                Description = "Ahmet Yılmaz'dan ödeme",
-                Date = DateTime.Now.AddDays(-1),
-                Amount = 5000.00m
-            },
-            new TransactionItem 
-            { 
-                Description = "Tedarikçi ödemesi - Elektronik malzemeler",
-                Date = DateTime.Now.AddDays(-2),
-                Amount = -2500.00m
-            },
-            new TransactionItem 
-            { 
-                Description = "Mehmet Kaya'dan ödeme - Proje taksiti",
-                Date = DateTime.Now.AddDays(-3),
-                Amount = 3500.00m
-            },
-            new TransactionItem 
-            { 
-                Description = "Kira ödemesi - Haziran 2024",
-                Date = DateTime.Now.AddDays(-5),
-                Amount = -4500.00m
-            },
-            new TransactionItem 
-            { 
-                Description = "Yazılım lisans geliri",
-                Date = DateTime.Now.AddDays(-7),
-                Amount = 8500.00m
-            },
-            new TransactionItem 
-            { 
-                Description = "Personel maaş ödemeleri",
-                Date = DateTime.Now.AddDays(-7),
-                Amount = -12500.00m
-            }
-        };
-    }
-
-    private void LoadDataForPeriod(int periodIndex)
-    {
-        // Gerçek uygulamada burada seçilen döneme göre verileri yükleyeceğiz
-        // Şimdilik sadece örnek veriler
         switch (periodIndex)
         {
             case 0: // Son 1 ay
                 ChartLabels = new[] { "1.Hafta", "2.Hafta", "3.Hafta", "4.Hafta" };
-                ChartSeries[0].Values = new ChartValues<double> { 25000, 28000, 32000, 35000 };
-                ChartSeries[1].Values = new ChartValues<double> { 18000, 22000, 20000, 25000 };
                 break;
             case 1: // Son 3 ay
                 ChartLabels = new[] { "Nisan", "Mayıs", "Haziran" };
-                ChartSeries[0].Values = new ChartValues<double> { 75000, 82000, 95000 };
-                ChartSeries[1].Values = new ChartValues<double> { 55000, 58000, 62000 };
                 break;
             case 2: // Son 6 ay
+            default:
                 ChartLabels = new[] { "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran" };
-                ChartSeries[0].Values = new ChartValues<double> { 65000, 85000, 78000, 92000, 88000, 95000 };
-                ChartSeries[1].Values = new ChartValues<double> { 45000, 42000, 55000, 48000, 58000, 62000 };
                 break;
         }
+    }
+
+    private void LoadDataForPeriod(int periodIndex)
+    {
+        // Periyot değiştiğinde grafik verilerini güncelle
+        PrepareChartData(periodIndex);
     }
 
     public event PropertyChangedEventHandler PropertyChanged;

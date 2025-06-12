@@ -5,7 +5,9 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Threading.Tasks;
 using Nethesap.Domain.Entities;
+using Nethesap.UI.Services;
 
 namespace Nethesap.UI.ViewModels
 {
@@ -26,6 +28,8 @@ namespace Nethesap.UI.ViewModels
         private ICommand _cancelEditCommand;
         private ICommand _deleteProductCommand;
         private int _lowStockThreshold = 5;
+        private bool _isLoading;
+        private readonly ProductService _productService;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -112,6 +116,16 @@ namespace Nethesap.UI.ViewModels
             }
         }
 
+        public bool IsLoading
+        {
+            get => _isLoading;
+            set
+            {
+                _isLoading = value;
+                OnPropertyChanged();
+            }
+        }
+
         // Commands
         public ICommand AddProductCommand => _addProductCommand ??= new RelayCommand(OpenAddProductDialog);
         public ICommand SaveProductCommand => _saveProductCommand ??= new RelayCommand(SaveProduct);
@@ -124,87 +138,59 @@ namespace Nethesap.UI.ViewModels
         // Constructor
         public ProductsViewModel()
         {
-            LoadSampleData();
+            _productService = new ProductService();
             NewProduct = new Product();
+            LoadProducts();
         }
 
         // Methods
-        private void FilterProducts()
+        private async void FilterProducts()
         {
-            if (string.IsNullOrWhiteSpace(SearchText))
+            try
             {
-                FilteredProducts = new ObservableCollection<Product>(Products);
+                if (string.IsNullOrWhiteSpace(SearchText))
+                {
+                    FilteredProducts = new ObservableCollection<Product>(Products);
+                }
+                else
+                {
+                    // Veritabanından arama yap
+                    var products = await _productService.SearchProductsAsync(SearchText);
+                    FilteredProducts = products;
+                }
             }
-            else
+            catch (Exception ex)
             {
-                FilteredProducts = new ObservableCollection<Product>(
-                    Products.Where(p => 
-                        p.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase) || 
-                        p.Description.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-                        p.Barcode.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-                        p.Category.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
-                );
+                Console.WriteLine($"Ürün filtreleme hatası: {ex.Message}");
             }
         }
 
-        private void LoadSampleData()
+        private async void LoadProducts()
         {
-            // In a real app, this would come from a repository or service
-            Products = new ObservableCollection<Product>
+            try
             {
-                new Product
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "Laptop",
-                    Description = "Oyun Bilgisayarı - 16GB RAM, 512GB SSD",
-                    Price = 25000.00m,
-                    StockQuantity = 12,
-                    Barcode = "1234567890",
-                    Category = "Elektronik"
-                },
-                new Product
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "Telefon",
-                    Description = "Akıllı Telefon - 128GB",
-                    Price = 15000.00m,
-                    StockQuantity = 3,
-                    Barcode = "0987654321",
-                    Category = "Elektronik"
-                },
-                new Product
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "Klavye",
-                    Description = "Mekanik Klavye - RGB Aydınlatmalı",
-                    Price = 1200.00m,
-                    StockQuantity = 0,
-                    Barcode = "1122334455",
-                    Category = "Aksesuar"
-                },
-                new Product
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "Kulaklık",
-                    Description = "Kablosuz Kulaklık - Gürültü Engelleyici",
-                    Price = 2800.00m,
-                    StockQuantity = 7,
-                    Barcode = "5566778899",
-                    Category = "Aksesuar"
-                },
-                new Product
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "Fare",
-                    Description = "Kablosuz Gaming Mouse - 16000 DPI",
-                    Price = 750.00m,
-                    StockQuantity = 4,
-                    Barcode = "9988776655",
-                    Category = "Aksesuar"
-                }
-            };
+                IsLoading = true;
+                Products = await _productService.GetAllProductsAsync();
+                FilteredProducts = new ObservableCollection<Product>(Products);
 
-            FilteredProducts = new ObservableCollection<Product>(Products);
+                // Stok miktarı düşük ürünleri kontrol et
+                var lowStockProducts = await _productService.GetLowStockProductsAsync(LowStockThreshold);
+                if (lowStockProducts.Any())
+                {
+                    var lowStockCount = lowStockProducts.Count;
+                    Console.WriteLine($"Dikkat: {lowStockCount} ürünün stok miktarı düşük!");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ürünleri yükleme hatası: {ex.Message}");
+                Products = new ObservableCollection<Product>();
+                FilteredProducts = new ObservableCollection<Product>();
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
         private void OpenAddProductDialog(object obj)
@@ -213,16 +199,39 @@ namespace Nethesap.UI.ViewModels
             IsAddDialogOpen = true;
         }
 
-        private void SaveProduct(object obj)
+        private async void SaveProduct(object obj)
         {
-            // In a real app, this would save to a database
-            NewProduct.Id = Guid.NewGuid();
-            
-            Products.Add(NewProduct);
-            FilterProducts();
-            
-            IsAddDialogOpen = false;
-            NewProduct = new Product();
+            try
+            {
+                IsLoading = true;
+
+                if (NewProduct == null) return;
+
+                // Ürünü veritabanına ekle
+                bool success = await _productService.AddProductAsync(NewProduct);
+
+                if (success)
+                {
+                    // UI'ı güncelle
+                    Products.Add(NewProduct);
+                    FilteredProducts.Add(NewProduct);
+                    IsAddDialogOpen = false;
+                    NewProduct = new Product();
+                }
+                else
+                {
+                    // Hata durumunu kullanıcıya bildir
+                    Console.WriteLine("Ürün eklenemedi!");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ürün kaydetme hatası: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
         private void CancelAdd(object obj)
@@ -233,6 +242,9 @@ namespace Nethesap.UI.ViewModels
 
         private void OpenEditProductDialog(Product product)
         {
+            if (product == null) return;
+
+            // Orijinal ürünün bir kopyasını oluştur (doğrudan referansı değiştirmemek için)
             SelectedProduct = new Product
             {
                 Id = product.Id,
@@ -241,29 +253,52 @@ namespace Nethesap.UI.ViewModels
                 Price = product.Price,
                 StockQuantity = product.StockQuantity,
                 Barcode = product.Barcode,
-                Category = product.Category,
-                PaymentItems = product.PaymentItems
+                Category = product.Category
             };
-            
+
             IsEditDialogOpen = true;
         }
 
-        private void SaveEditedProduct(object obj)
+        private async void SaveEditedProduct(object obj)
         {
-            // In a real app, this would update the database
-            var existingProduct = Products.FirstOrDefault(p => p.Id == SelectedProduct.Id);
-            if (existingProduct != null)
+            try
             {
-                existingProduct.Name = SelectedProduct.Name;
-                existingProduct.Description = SelectedProduct.Description;
-                existingProduct.Price = SelectedProduct.Price;
-                existingProduct.StockQuantity = SelectedProduct.StockQuantity;
-                existingProduct.Barcode = SelectedProduct.Barcode;
-                existingProduct.Category = SelectedProduct.Category;
+                IsLoading = true;
+
+                if (SelectedProduct == null) return;
+
+                // Ürünü veritabanında güncelle
+                bool success = await _productService.UpdateProductAsync(SelectedProduct);
+
+                if (success)
+                {
+                    // UI'daki ürünü güncelle
+                    var existingProduct = Products.FirstOrDefault(p => p.Id == SelectedProduct.Id);
+                    if (existingProduct != null)
+                    {
+                        int index = Products.IndexOf(existingProduct);
+                        Products[index] = SelectedProduct;
+                    }
+
+                    // Filtrelenmiş listeyi güncelle
+                    FilterProducts();
+
+                    IsEditDialogOpen = false;
+                }
+                else
+                {
+                    // Hata durumunu kullanıcıya bildir
+                    Console.WriteLine("Ürün güncellenemedi!");
+                }
             }
-            
-            FilterProducts();
-            IsEditDialogOpen = false;
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ürün güncelleme hatası: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
         private void CancelEdit(object obj)
@@ -271,17 +306,46 @@ namespace Nethesap.UI.ViewModels
             IsEditDialogOpen = false;
         }
 
-        private void DeleteProduct(Product product)
+        private async void DeleteProduct(Product product)
         {
-            if (MessageBox.Show(
-                $"'{product.Name}' ürününü silmek istediğinize emin misiniz?",
-                "Ürün Silme Onayı",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning) == MessageBoxResult.Yes)
+            try
             {
-                // In a real app, this would delete from the database
-                Products.Remove(product);
-                FilterProducts();
+                IsLoading = true;
+
+                if (product == null) return;
+
+                // Kullanıcıya silme işlemini onaylat
+                MessageBoxResult result = MessageBox.Show(
+                    $"{product.Name} ürününü silmek istediğinize emin misiniz?",
+                    "Silme Onayı",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    // Ürünü veritabanından sil
+                    bool success = await _productService.DeleteProductAsync(product);
+
+                    if (success)
+                    {
+                        // UI'dan ürünü kaldır
+                        Products.Remove(product);
+                        FilterProducts();
+                    }
+                    else
+                    {
+                        // Hata durumunu kullanıcıya bildir
+                        Console.WriteLine("Ürün silinemedi!");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ürün silme hatası: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
             }
         }
 

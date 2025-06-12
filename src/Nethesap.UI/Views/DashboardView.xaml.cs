@@ -26,9 +26,9 @@ public partial class DashboardView : System.Windows.Controls.UserControl
 // Design-time data class
 public class DashboardDesignData
 {
-    public decimal TotalBalance { get; set; } = 125000.00m;
-    public decimal TotalReceivables { get; set; } = 75000.00m;
-    public decimal TotalPayables { get; set; } = 45000.00m;
+    public decimal TotalBalance { get; set; } = 0m;
+    public decimal TotalReceivables { get; set; } = 0m;
+    public decimal TotalPayables { get; set; } = 0m;
     public int SelectedPeriodIndex { get; set; } = 0;
 
     public SeriesCollection ChartSeries { get; set; }
@@ -45,7 +45,7 @@ public class DashboardDesignData
             new LineSeries
             {
                 Title = "Gelir",
-                Values = new ChartValues<double> { 65000, 85000, 78000, 92000, 88000, 95000 },
+                Values = new ChartValues<double> { 0, 0, 0, 0, 0, 0 },
                 PointGeometry = DefaultGeometries.Circle,
                 PointGeometrySize = 10,
                 LineSmoothness = 0.3
@@ -53,7 +53,7 @@ public class DashboardDesignData
             new LineSeries
             {
                 Title = "Gider",
-                Values = new ChartValues<double> { 45000, 42000, 55000, 48000, 58000, 62000 },
+                Values = new ChartValues<double> { 0, 0, 0, 0, 0, 0 },
                 PointGeometry = DefaultGeometries.Square,
                 PointGeometrySize = 10,
                 LineSmoothness = 0.3
@@ -64,41 +64,7 @@ public class DashboardDesignData
         ChartFormatter = value => value.ToString("C0");
 
         // Initialize sample transactions
-        RecentTransactions = new ObservableCollection<TransactionItem>
-        {
-            new TransactionItem 
-            { 
-                Description = "Ahmet Yılmaz'dan ödeme",
-                Date = DateTime.Now.AddDays(-1),
-                Amount = 5000.00m,
-                Icon = PackIconKind.ArrowTopRight,
-                IsIncome = true
-            },
-            new TransactionItem 
-            { 
-                Description = "Tedarikçi ödemesi",
-                Date = DateTime.Now.AddDays(-2),
-                Amount = -2500.00m,
-                Icon = PackIconKind.ArrowBottomLeft,
-                IsIncome = false
-            },
-            new TransactionItem 
-            { 
-                Description = "Mehmet Kaya'dan ödeme",
-                Date = DateTime.Now.AddDays(-3),
-                Amount = 3500.00m,
-                Icon = PackIconKind.ArrowTopRight,
-                IsIncome = true
-            },
-            new TransactionItem 
-            { 
-                Description = "Kira ödemesi",
-                Date = DateTime.Now.AddDays(-5),
-                Amount = -4500.00m,
-                Icon = PackIconKind.ArrowBottomLeft,
-                IsIncome = false
-            }
-        };
+        RecentTransactions = new ObservableCollection<TransactionItem>(); // Boş koleksiyon
     }
 }
 

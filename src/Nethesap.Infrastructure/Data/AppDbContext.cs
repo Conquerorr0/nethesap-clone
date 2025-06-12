@@ -1,12 +1,34 @@
 using Microsoft.EntityFrameworkCore;
 using Nethesap.Domain.Entities;
 using System;
+using System.IO;
 
 namespace Nethesap.Infrastructure.Data
 {
     public class AppDbContext : DbContext
     {
+        private static readonly string DefaultDbPath;
+
+        static AppDbContext()
+        {
+            // Statik olarak veritabanı yolu belirle
+            string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string dbFolder = Path.Combine(appDataPath, "Nethesap");
+            
+            if (!Directory.Exists(dbFolder))
+            {
+                Directory.CreateDirectory(dbFolder);
+            }
+            
+            DefaultDbPath = Path.Combine(dbFolder, "nethesap.db");
+            Console.WriteLine($"Veritabanı yolu: {DefaultDbPath}");
+        }
+        
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+        {
+        }
+        
+        public AppDbContext() 
         {
         }
 
@@ -15,6 +37,26 @@ namespace Nethesap.Infrastructure.Data
         public DbSet<Payment> Payments { get; set; }
         public DbSet<PaymentItem> PaymentItems { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
+        
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
+            {
+                try
+                {
+                    // SQLite bağlantısını yapılandır
+                    optionsBuilder.UseSqlite($"Data Source={DefaultDbPath}");
+                    Console.WriteLine($"SQLite veritabanı yapılandırıldı");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Veritabanı yapılandırılırken hata oluştu: {ex.Message}");
+                    Console.WriteLine($"InnerException: {ex.InnerException?.Message}");
+                    Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                    throw;
+                }
+            }
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -27,7 +69,6 @@ namespace Nethesap.Infrastructure.Data
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Description).HasMaxLength(500);
                 entity.Property(e => e.Price).HasPrecision(18, 2);
-                entity.Property(e => e.StockQuantity).IsRequired();
                 entity.Property(e => e.Barcode).HasMaxLength(50);
                 entity.Property(e => e.Category).HasMaxLength(100);
             });
@@ -42,18 +83,6 @@ namespace Nethesap.Infrastructure.Data
                 entity.Property(e => e.Email).HasMaxLength(100);
                 entity.Property(e => e.Address).HasMaxLength(500);
                 entity.Property(e => e.Balance).HasPrecision(18, 2);
-
-                // Customer - Payment ilişkisi
-                entity.HasMany(e => e.Payments)
-                      .WithOne(e => e.Customer)
-                      .HasForeignKey(e => e.CustomerId)
-                      .OnDelete(DeleteBehavior.Restrict);
-
-                // Customer - Transaction ilişkisi
-                entity.HasMany(e => e.Transactions)
-                      .WithOne(e => e.Customer)
-                      .HasForeignKey(e => e.CustomerId)
-                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Payment konfigürasyonu
@@ -62,12 +91,6 @@ namespace Nethesap.Infrastructure.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.TotalAmount).HasPrecision(18, 2);
                 entity.Property(e => e.Description).HasMaxLength(500);
-
-                // Payment - PaymentItem ilişkisi
-                entity.HasMany(e => e.PaymentItems)
-                      .WithOne(e => e.Payment)
-                      .HasForeignKey(e => e.PaymentId)
-                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             // PaymentItem konfigürasyonu
@@ -77,12 +100,6 @@ namespace Nethesap.Infrastructure.Data
                 entity.Property(e => e.Quantity).IsRequired();
                 entity.Property(e => e.UnitPrice).HasPrecision(18, 2);
                 entity.Property(e => e.TotalPrice).HasPrecision(18, 2);
-
-                // PaymentItem - Product ilişkisi
-                entity.HasOne(e => e.Product)
-                      .WithMany(e => e.PaymentItems)
-                      .HasForeignKey(e => e.ProductId)
-                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Transaction konfigürasyonu
@@ -123,7 +140,17 @@ namespace Nethesap.Infrastructure.Data
                 }
             }
 
-            return base.SaveChanges();
+            try
+            {
+                return base.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Veritabanı kayıt hatası: {ex.Message}");
+                Console.WriteLine($"InnerException: {ex.InnerException?.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                throw;
+            }
         }
     }
 } 
