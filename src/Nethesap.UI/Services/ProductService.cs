@@ -59,14 +59,28 @@ namespace Nethesap.UI.Services
                     return await GetAllProductsAsync();
                 }
 
+                // Arama metnini küçük harfe çevir
+                searchText = searchText.ToLower();
+
+                // Veritabanında arama yap
                 var products = await _productRepository.FindAsync(p =>
-                    p.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                    p.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                    p.Barcode.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                    p.Category.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                    p.Name.ToLower().Contains(searchText) ||
+                    p.Barcode.ToLower().Contains(searchText) ||
+                    p.Description.ToLower().Contains(searchText) ||
+                    p.Category.ToLower().Contains(searchText)
                 );
 
-                return new ObservableCollection<Product>(products);
+                // Sonuçları sırala (önce tam eşleşmeler, sonra kısmi eşleşmeler)
+                var sortedProducts = products.OrderBy(p =>
+                {
+                    if (p.Name.ToLower() == searchText || p.Barcode.ToLower() == searchText)
+                        return 0;
+                    if (p.Name.ToLower().StartsWith(searchText))
+                        return 1;
+                    return 2;
+                }).ToList();
+
+                return new ObservableCollection<Product>(sortedProducts);
             }
             catch (Exception ex)
             {

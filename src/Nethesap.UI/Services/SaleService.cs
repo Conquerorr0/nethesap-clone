@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Nethesap.Domain.Entities;
 using Nethesap.Domain.IRepositories;
 using Nethesap.Infrastructure.Data;
@@ -33,6 +34,14 @@ namespace Nethesap.UI.Services
             _productRepository = new EfRepository<Product>(_dbContext);
         }
 
+        private IQueryable<Payment> GetBaseQuery()
+        {
+            return _paymentRepository.Query()
+                .Include(p => p.Customer)
+                .Include(p => p.PaymentItems)
+                    .ThenInclude(pi => pi.Product);
+        }
+
         /// <summary>
         /// Tüm satışları getirir
         /// </summary>
@@ -41,7 +50,7 @@ namespace Nethesap.UI.Services
         {
             try
             {
-                return (await _paymentRepository.GetAllAsync()).ToList();
+                return await GetBaseQuery().ToListAsync();
             }
             catch (Exception ex)
             {
@@ -62,23 +71,19 @@ namespace Nethesap.UI.Services
         {
             try
             {
-                var allSales = await _paymentRepository.GetAllAsync();
-                var filteredSales = allSales.ToList();
-                
-                // Tarih aralığına göre filtreleme
+                var query = GetBaseQuery().Where(p => p.CustomerId == customerId);
+
                 if (startDate.HasValue && endDate.HasValue)
                 {
                     var startDateTime = startDate.Value.Date;
                     var endDateTime = endDate.Value.Date.AddDays(1).AddSeconds(-1);
                     
-                    filteredSales = filteredSales.Where(p => 
+                    query = query.Where(p => 
                         p.CreatedDate >= startDateTime && 
-                        p.CreatedDate <= endDateTime)
-                        .ToList();
+                        p.CreatedDate <= endDateTime);
                 }
                 
-                // Müşteriye göre filtreleme
-                return filteredSales.Where(p => p.CustomerId == customerId).ToList();
+                return await query.ToListAsync();
             }
             catch (Exception ex)
             {
@@ -96,7 +101,7 @@ namespace Nethesap.UI.Services
         {
             try
             {
-                var sales = await _paymentRepository.GetAllAsync();
+                var sales = await GetBaseQuery().ToListAsync();
                 return new ObservableCollection<Payment>(sales);
             }
             catch (Exception ex)
@@ -117,22 +122,19 @@ namespace Nethesap.UI.Services
         {
             try
             {
-                var allSales = await _paymentRepository.GetAllAsync();
-                var filteredSales = allSales.ToList();
+                var query = GetBaseQuery();
                 
-                // Tarih aralığına göre filtreleme
                 if (startDate.HasValue && endDate.HasValue)
                 {
                     var startDateTime = startDate.Value.Date;
                     var endDateTime = endDate.Value.Date.AddDays(1).AddSeconds(-1);
                     
-                    filteredSales = filteredSales.Where(p => 
+                    query = query.Where(p => 
                         p.CreatedDate >= startDateTime && 
-                        p.CreatedDate <= endDateTime)
-                        .ToList();
+                        p.CreatedDate <= endDateTime);
                 }
                 
-                return filteredSales;
+                return await query.ToListAsync();
             }
             catch (Exception ex)
             {
@@ -151,7 +153,9 @@ namespace Nethesap.UI.Services
         {
             try
             {
-                var sales = await _paymentRepository.FindAsync(p => p.CustomerId == customerId);
+                var sales = await GetBaseQuery()
+                    .Where(p => p.CustomerId == customerId)
+                    .ToListAsync();
                 return new ObservableCollection<Payment>(sales);
             }
             catch (Exception ex)
@@ -167,49 +171,18 @@ namespace Nethesap.UI.Services
         /// </summary>
         /// <param name="id">Satış ID'si</param>
         /// <returns>Bulunan satış veya null</returns>
-        public async Task<Payment> GetSaleByIdAsync(Guid id)
+        public async Task<Payment?> GetSaleByIdAsync(Guid id)
         {
             try
             {
-                // Önce DbContext'i kontrol et
                 if (_dbContext == null)
                 {
                     Console.WriteLine("HATA: DbContext null, yeniden oluşturuluyor");
-                    // ReadOnly alanlara atama yapmak yerine yeni bir örnek oluştur
                     return null;
                 }
                 
-                var payment = await _paymentRepository.GetByIdAsync(id);
-                if (payment != null)
-                {
-                    try
-                    {
-                        // Satış detaylarını getir
-                        var items = await _paymentItemRepository.FindAsync(i => i.PaymentId == id);
-                        
-                        // PaymentItems koleksiyonunu oluştur (null değilse)
-                        if (payment.PaymentItems == null)
-                        {
-                            payment.PaymentItems = new List<PaymentItem>();
-                        }
-                        
-                        // Satış kalemlerini ekle
-                        foreach (var item in items)
-                        {
-                            payment.PaymentItems.Add(item);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"PaymentItems getirilirken hata: {ex.Message}");
-                        Console.WriteLine($"InnerException: {ex.InnerException?.Message}");
-                        
-                        // Hata olsa bile Payment nesnesini döndür, PaymentItems null olabilir
-                        payment.PaymentItems = new List<PaymentItem>();
-                    }
-                }
-                
-                return payment;
+                return await GetBaseQuery()
+                    .FirstOrDefaultAsync(p => p.Id == id);
             }
             catch (Exception ex)
             {
@@ -228,49 +201,15 @@ namespace Nethesap.UI.Services
         {
             try
             {
-                Console.WriteLine("Satış ekleme işlemi başlatılıyor...");
+                Console.WriteLine($"Satış ekleme işlemi başlatıldı: ID: {payment.Id}");
                 
-                if (payment == null)
-                {
-                    Console.WriteLine("HATA: Satış nesnesi null!");
-                    return false;
-                }
-                
-                if (payment.Id == Guid.Empty)
-                {
-                    payment.Id = Guid.NewGuid();
-                    Console.WriteLine($"Yeni satış ID'si oluşturuldu: {payment.Id}");
-                }
-
-                Console.WriteLine($"Satış detayları: Müşteri ID: {payment.CustomerId}, Toplam: {payment.TotalAmount:C2}");
-                
-                // Müşteri kontrolü
-                if (payment.CustomerId == Guid.Empty)
-                {
-                    Console.WriteLine("HATA: Müşteri ID boş!");
-                    return false;
-                }
-                
-                // Customer navigation property'sini temizle - EF Core kendisi ilişkilendirecek
-                payment.Customer = null;
-                
-                var customer = await _customerRepository.GetByIdAsync(payment.CustomerId);
-                if (customer == null)
-                {
-                    Console.WriteLine($"HATA: {payment.CustomerId} ID'li müşteri bulunamadı!");
-                    return false;
-                }
-                Console.WriteLine($"Müşteri bulundu: {customer.FirstName} {customer.LastName}");
-
-                // Satış detayları için ID'leri ata
+                // Satış detaylarını kontrol et
                 if (payment.PaymentItems == null || !payment.PaymentItems.Any())
                 {
-                    Console.WriteLine("HATA: Satış kalemleri bulunamadı!");
+                    Console.WriteLine("HATA: Satış kalemleri boş!");
                     return false;
                 }
-                
-                Console.WriteLine($"Satış kalemleri sayısı: {payment.PaymentItems.Count}");
-                
+
                 // Her bir ürünü kontrol et ve doğru ID'leri ata
                 foreach (var item in payment.PaymentItems)
                 {
@@ -284,22 +223,18 @@ namespace Nethesap.UI.Services
                     // PaymentId atama
                     item.PaymentId = payment.Id;
                     
-                    // Product navigation property'sini temizle - EF Core kendisi ilişkilendirecek
-                    var tempProductId = item.ProductId;
-                    item.Product = null;
-                    
                     // ProductId kontrolü
-                    if (tempProductId == Guid.Empty)
+                    if (item.ProductId == Guid.Empty)
                     {
                         Console.WriteLine("HATA: Ürün ID'si boş!");
                         return false;
                     }
                     
                     // Ürün kontrolü
-                    var product = await _productRepository.GetByIdAsync(tempProductId);
+                    var product = await _productRepository.GetByIdAsync(item.ProductId);
                     if (product == null)
                     {
-                        Console.WriteLine($"HATA: {tempProductId} ID'li ürün bulunamadı!");
+                        Console.WriteLine($"HATA: {item.ProductId} ID'li ürün bulunamadı!");
                         return false;
                     }
                     
@@ -310,6 +245,11 @@ namespace Nethesap.UI.Services
                         return false;
                     }
                     
+                    // Ürün bilgilerini güncelle
+                    item.Product = product;
+                    item.UnitPrice = product.Price;
+                    item.TotalPrice = product.Price * item.Quantity;
+                    
                     Console.WriteLine($"Satış kalemi: Ürün: {product.Name}, Adet: {item.Quantity}, Birim Fiyat: {item.UnitPrice:C2}, Toplam: {item.TotalPrice:C2}");
                 }
 
@@ -318,31 +258,45 @@ namespace Nethesap.UI.Services
 
                 try
                 {
-                    // Manuel olarak satış ekleme ve stok güncellemeyi yönetelim
+                    // Transaction başlat
+                    using var transaction = await _dbContext.Database.BeginTransactionAsync();
                     
-                    // 1. Satışı ekle
-                    await _dbContext.Payments.AddAsync(payment);
-                    await _dbContext.SaveChangesAsync();
-                    Console.WriteLine("Satış veritabanına eklendi.");
-                    
-                    // 2. Stok miktarlarını güncelle
-                    foreach (var item in payment.PaymentItems)
+                    try
                     {
-                        var product = await _productRepository.GetByIdAsync(item.ProductId);
-                        if (product != null)
+                        // 1. Satışı ekle
+                        await _dbContext.Payments.AddAsync(payment);
+                        await _dbContext.SaveChangesAsync();
+                        Console.WriteLine("Satış veritabanına eklendi.");
+                        
+                        // 2. Stok miktarlarını güncelle
+                        foreach (var item in payment.PaymentItems)
                         {
-                            // Satış yapıldığında stok azalt
-                            product.StockQuantity -= item.Quantity;
-                            _dbContext.Products.Update(product);
-                            Console.WriteLine($"Ürün stoğu güncellendi: {product.Name}, Yeni stok: {product.StockQuantity}");
+                            var product = await _productRepository.GetByIdAsync(item.ProductId);
+                            if (product != null)
+                            {
+                                // Satış yapıldığında stok azalt
+                                product.StockQuantity -= item.Quantity;
+                                _dbContext.Products.Update(product);
+                                Console.WriteLine($"Ürün stoğu güncellendi: {product.Name}, Yeni stok: {product.StockQuantity}");
+                            }
                         }
+                        
+                        // Değişiklikleri kaydet
+                        await _dbContext.SaveChangesAsync();
+                        
+                        // Transaction'ı onayla
+                        await transaction.CommitAsync();
+                        Console.WriteLine("Tüm değişiklikler başarıyla kaydedildi.");
+                        
+                        return true;
                     }
-                    
-                    // Değişiklikleri kaydet
-                    await _dbContext.SaveChangesAsync();
-                    Console.WriteLine("Tüm değişiklikler başarıyla kaydedildi.");
-                    
-                    return true;
+                    catch (Exception ex)
+                    {
+                        // Hata durumunda transaction'ı geri al
+                        await transaction.RollbackAsync();
+                        Console.WriteLine($"Transaction geri alındı. Hata: {ex.Message}");
+                        throw;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -354,17 +308,8 @@ namespace Nethesap.UI.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Satış eklenirken hata oluştu: {ex.Message}");
-                Console.WriteLine($"Hata Türü: {ex.GetType().Name}");
+                Console.WriteLine($"Satış ekleme hatası: {ex.Message}");
                 Console.WriteLine($"StackTrace: {ex.StackTrace}");
-                
-                if (ex.InnerException != null)
-                {
-                    Console.WriteLine($"InnerException: {ex.InnerException.Message}");
-                    Console.WriteLine($"InnerException Türü: {ex.InnerException.GetType().Name}");
-                    Console.WriteLine($"InnerException StackTrace: {ex.InnerException.StackTrace}");
-                }
-                
                 return false;
             }
         }
@@ -511,114 +456,26 @@ namespace Nethesap.UI.Services
         }
 
         /// <summary>
-        /// Satış detaylarını getirir
+        /// Satış detaylarını getirir (PaymentItems ve Product bilgilerini de içerir)
         /// </summary>
         /// <param name="saleId">Satış ID'si</param>
-        /// <returns>Satış detayları</returns>
+        /// <returns>Detayları ile birlikte satış nesnesi</returns>
         public async Task<Payment> GetSaleDetailsAsync(Guid saleId)
         {
             try
             {
-                // Veritabanı bağlantısını kontrol et
-                if (_dbContext == null)
-                {
-                    Console.WriteLine("DbContext null. Yeni bir bağlantı oluşturuluyor.");
-                    // Yeni bağlantı kullanarak işlem yapalım
-                    using (var newContext = new AppDbContext())
-                    {
-                        var tempRepo = new EfRepository<Payment>(newContext);
-                        var payment = await tempRepo.GetByIdAsync(saleId);
-                        
-                        if (payment != null)
-                        {
-                            var tempItemRepo = new EfRepository<PaymentItem>(newContext);
-                            var items = await tempItemRepo.FindAsync(i => i.PaymentId == saleId);
-                            
-                            // Satış kalemlerini atama
-                            if (payment.PaymentItems == null)
-                            {
-                                payment.PaymentItems = new List<PaymentItem>();
-                            }
-                            
-                            foreach (var item in items)
-                            {
-                                payment.PaymentItems.Add(item);
-                            }
-                        }
-                        
-                        return payment;
-                    }
-                }
-                
-                // Normal akış - DbContext mevcut
-                var existingPayment = await _paymentRepository.GetByIdAsync(saleId);
-                
-                if (existingPayment == null)
-                {
-                    Console.WriteLine($"ID: {saleId} olan satış bulunamadı.");
-                    return null;
-                }
-                
-                try
-                {
-                    // Satış kalemlerini getir
-                    var paymentItems = await _paymentItemRepository.FindAsync(i => i.PaymentId == saleId);
-                    
-                    // Koleksiyonu başlat
-                    if (existingPayment.PaymentItems == null)
-                    {
-                        existingPayment.PaymentItems = new List<PaymentItem>();
-                    }
-                    else
-                    {
-                        // Mevcut koleksiyonu temizle
-                        existingPayment.PaymentItems.Clear();
-                    }
-                    
-                    // Kalemleri ekle
-                    foreach (var item in paymentItems)
-                    {
-                        // Her satış kalemi için ürün bilgisini de getir
-                        if (item.ProductId != null && item.ProductId != Guid.Empty && item.Product == null)
-                        {
-                            item.Product = await _productRepository.GetByIdAsync(item.ProductId);
-                        }
-                        
-                        existingPayment.PaymentItems.Add(item);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Satış kalemleri getirilirken hata: {ex.Message}");
-                    Console.WriteLine($"Detay: {ex.InnerException?.Message}");
-                    
-                    // Hata olsa bile boş liste ile devam et
-                    if (existingPayment.PaymentItems == null)
-                    {
-                        existingPayment.PaymentItems = new List<PaymentItem>();
-                    }
-                }
-                
-                // Müşteri bilgisini getir
-                if (existingPayment.CustomerId != null && existingPayment.CustomerId != Guid.Empty && existingPayment.Customer == null)
-                {
-                    try
-                    {
-                        existingPayment.Customer = await _customerRepository.GetByIdAsync(existingPayment.CustomerId);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Müşteri bilgisi getirilirken hata: {ex.Message}");
-                    }
-                }
-                
-                return existingPayment;
+                var sale = await _paymentRepository.Query()
+                    .Include(p => p.Customer)
+                    .Include(p => p.PaymentItems)
+                        .ThenInclude(pi => pi.Product)
+                    .FirstOrDefaultAsync(p => p.Id == saleId);
+
+                return sale;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Satış detayları getirilirken kritik hata: {ex.Message}");
-                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-                Console.WriteLine($"İç Hata: {ex.InnerException?.Message}");
+                Console.WriteLine($"Satış detayları getirilirken hata oluştu: {ex.Message}");
+                Console.WriteLine($"InnerException: {ex.InnerException?.Message}");
                 return null;
             }
         }

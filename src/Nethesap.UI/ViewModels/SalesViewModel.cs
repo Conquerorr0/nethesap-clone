@@ -13,11 +13,11 @@ namespace Nethesap.UI.ViewModels
 {
     public class SalesViewModel : INotifyPropertyChanged
     {
-        private ObservableCollection<Payment> _sales;
-        private ObservableCollection<Payment> _filteredSales;
-        private ObservableCollection<Product> _products;
-        private ObservableCollection<Customer> _customers;
-        private ObservableCollection<PaymentItem> _currentSaleItems;
+        private ObservableCollection<Payment> _sales = new ObservableCollection<Payment>();
+        private ObservableCollection<Payment> _filteredSales = new ObservableCollection<Payment>();
+        private ObservableCollection<Product> _products = new ObservableCollection<Product>();
+        private ObservableCollection<Customer> _customers = new ObservableCollection<Customer>();
+        private ObservableCollection<PaymentItem> _currentSaleItems = new ObservableCollection<PaymentItem>();
         
         private bool _isNewSaleDialogOpen;
         private bool _isRefundDialogOpen;
@@ -25,36 +25,36 @@ namespace Nethesap.UI.ViewModels
         private bool _isSaleDetailsDialogOpen;
         private bool _isCustomerSearchOpen;
         
-        private Product _selectedProduct;
-        private Customer _selectedCustomer;
-        private PaymentItem _selectedSaleItem;
-        private Payment _selectedSale;
-        private Payment _currentSale;
+        private Product? _selectedProduct = null;
+        private Customer? _selectedCustomer = null;
+        private PaymentItem? _selectedSaleItem = null;
+        private Payment? _selectedSale = null;
+        private Payment? _currentSale = null;
         
         private int _quantity = 1;
-        private string _productSearchText;
-        private string _customerSearchText;
-        private DateTime? _startDate;
-        private DateTime? _endDate;
-        private PaymentMethod? _filterPaymentMethod;
+        private string _productSearchText = string.Empty;
+        private string _customerSearchText = string.Empty;
+        private DateTime? _startDate = null;
+        private DateTime? _endDate = null;
+        private PaymentMethod? _filterPaymentMethod = null;
         
-        private ICommand _addSaleCommand;
-        private ICommand _saveSaleCommand;
-        private ICommand _cancelSaleCommand;
-        private ICommand _addProductToSaleCommand;
-        private ICommand _removeProductFromSaleCommand;
-        private ICommand _searchProductCommand;
-        private ICommand _selectProductCommand;
-        private ICommand _refundSaleCommand;
-        private ICommand _processRefundCommand;
-        private ICommand _cancelRefundCommand;
-        private ICommand _filterSalesCommand;
-        private ICommand _resetFilterCommand;
-        private ICommand _viewSaleDetailsCommand;
-        private ICommand _closeSaleDetailsCommand;
-        private ICommand _generateReportCommand;
-        private ICommand _searchCustomerCommand;
-        private ICommand _selectCustomerCommand;
+        private ICommand? _addSaleCommand;
+        private ICommand? _saveSaleCommand;
+        private ICommand? _cancelSaleCommand;
+        private ICommand? _addProductToSaleCommand;
+        private ICommand? _removeProductFromSaleCommand;
+        private ICommand? _searchProductCommand;
+        private ICommand? _selectProductCommand;
+        private ICommand? _refundSaleCommand;
+        private ICommand? _processRefundCommand;
+        private ICommand? _cancelRefundCommand;
+        private ICommand? _filterSalesCommand;
+        private ICommand? _resetFilterCommand;
+        private ICommand? _viewSaleDetailsCommand;
+        private ICommand? _closeSaleDetailsCommand;
+        private ICommand? _generateReportCommand;
+        private ICommand? _searchCustomerCommand;
+        private ICommand? _selectCustomerCommand;
         private bool _isLoading;
         private readonly ProductService _productService;
         private readonly CustomerService _customerService;
@@ -62,10 +62,11 @@ namespace Nethesap.UI.ViewModels
         private int _totalSales;
         private decimal _totalRevenue;
         private decimal _averageRevenue;
-        private ObservableCollection<PaymentType> _paymentTypes;
-        private ObservableCollection<PaymentMethod> _paymentMethods;
+        private ObservableCollection<PaymentType> _paymentTypes = new ObservableCollection<PaymentType>();
+        private ObservableCollection<PaymentMethod> _paymentMethods = new ObservableCollection<PaymentMethod>();
+        private ObservableCollection<Product> _filteredProducts = new ObservableCollection<Product>();
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         // Properties
         public ObservableCollection<Payment> Sales
@@ -108,10 +109,10 @@ namespace Nethesap.UI.ViewModels
 
         public ObservableCollection<Product> Products
         {
-            get => _products;
+            get => _filteredProducts;
             set
             {
-                _products = value;
+                _filteredProducts = value;
                 OnPropertyChanged();
             }
         }
@@ -162,6 +163,7 @@ namespace Nethesap.UI.ViewModels
             get => _isProductSearchOpen;
             set
             {
+                if (_isProductSearchOpen == value) return;
                 _isProductSearchOpen = value;
                 OnPropertyChanged();
             }
@@ -192,11 +194,14 @@ namespace Nethesap.UI.ViewModels
             get => _selectedProduct;
             set
             {
+                if (_selectedProduct == value) return;
                 _selectedProduct = value;
                 OnPropertyChanged();
+                
                 if (value != null)
                 {
-                    Quantity = 1;
+                    ProductSearchText = value.Name;
+                    IsProductSearchOpen = false;
                 }
             }
         }
@@ -310,45 +315,13 @@ namespace Nethesap.UI.ViewModels
             get => _productSearchText;
             set
             {
+                if (_productSearchText == value) return;
                 _productSearchText = value;
                 OnPropertyChanged();
                 
-                try
-                {
-                    // Arama işlemi için ürün verilerini kontrol et
-                    if (_products == null || _products.Count == 0)
-                    {
-                        // Veritabanından ürünleri yükle
-                        SearchProductsAsync();
-                        return;
-                    }
-                    
-                    // Her değişiklikte ürünleri filtrele
-                    if (!string.IsNullOrWhiteSpace(value))
-                    {
-                        // Arama için string'leri küçük harfe çevir (case-insensitive)
-                        var searchText = value.ToLower();
-                        
-                        var filtered = _products.Where(p =>
-                            p.Name?.ToLower().Contains(searchText) == true ||
-                            p.Description?.ToLower().Contains(searchText) == true ||
-                            p.Barcode?.ToLower().Contains(searchText) == true).ToList();
-                        
-                        Products = new ObservableCollection<Product>(filtered);
-                    }
-                    else
-                    {
-                        // Boş metin ise tüm ürünleri göster
-                        Products = new ObservableCollection<Product>(_products);
-                    }
-                    
-                    // Popup'ı her durumda aç
-                    IsProductSearchOpen = true;
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Ürün aramada hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
+                // Arama metni değiştiğinde her zaman asenkron olarak ürünleri ara
+                // Bu, UI'deki "Products" koleksiyonunu güncelleyecek ve arama sonuçlarını gösterecek.
+                SearchProductsAsync(); 
             }
         }
 
@@ -699,8 +672,35 @@ namespace Nethesap.UI.ViewModels
             try
             {
                 Console.WriteLine("Ürün ekleme işlemi başlatıldı...");
+                Console.WriteLine($"AddProductToSale: SelectedProduct = {SelectedProduct?.Name ?? "NULL"}, ProductSearchText = '{ProductSearchText}'");
                 
-                if (SelectedProduct == null)
+                // SelectedProduct null ise ve ProductSearchText dolu ise, arama sonuçlarından seçmeye çalış
+                if (SelectedProduct == null && !string.IsNullOrWhiteSpace(ProductSearchText))
+                {
+                    var searchTextLower = ProductSearchText.ToLower();
+                    // Products koleksiyonu SearchProductsAsync tarafından güncellendiği için,
+                    // burada doğrudan o koleksiyon üzerinden arama yapabiliriz.
+                    var matchingProduct = Products?.FirstOrDefault(p =>
+                        p.Name?.ToLower() == searchTextLower ||
+                        p.Barcode?.ToLower() == searchTextLower);
+
+                    if (matchingProduct != null)
+                    {
+                        SelectedProduct = matchingProduct;
+                        Console.WriteLine($"Ürün bulundu (arama sonuçlarından): {SelectedProduct.Name}");
+                    }
+                    else if (Products != null && Products.Count == 1) // Arama sonuçlarında tek ürün varsa onu seç
+                    {
+                        SelectedProduct = Products.First();
+                        Console.WriteLine($"Ürün bulundu (tek arama sonucu): {SelectedProduct.Name}");
+                    }
+                    else
+                    {
+                        MessageBox.Show("Lütfen listeden bir ürün seçiniz veya arama yapınız!", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                }
+                else if (SelectedProduct == null)
                 {
                     MessageBox.Show("Lütfen bir ürün seçiniz!", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
@@ -734,6 +734,7 @@ namespace Nethesap.UI.ViewModels
                     // Update existing item
                     existingItem.Quantity += Quantity;
                     existingItem.TotalPrice = existingItem.UnitPrice * existingItem.Quantity;
+                    existingItem.Product = SelectedProduct; // Ürün bilgisini güncelle
                     Console.WriteLine($"Mevcut ürün güncellendi: {existingItem.Product.Name}, Yeni Miktar: {existingItem.Quantity}");
                 }
                 else
@@ -743,7 +744,7 @@ namespace Nethesap.UI.ViewModels
                     {
                         Id = Guid.NewGuid(),
                         ProductId = SelectedProduct.Id,
-                        Product = SelectedProduct,
+                        Product = SelectedProduct, // Ürün bilgisini ekle
                         Quantity = Quantity,
                         UnitPrice = SelectedProduct.Price,
                         TotalPrice = SelectedProduct.Price * Quantity
@@ -753,12 +754,10 @@ namespace Nethesap.UI.ViewModels
                     Console.WriteLine($"Yeni ürün eklendi: {paymentItem.Product.Name}, Miktar: {paymentItem.Quantity}");
                 }
 
-                // Clear selection
+                // Clear selection (ürün eklendikten sonra temizle, sonraki ekleme için)
                 SelectedProduct = null;
                 ProductSearchText = string.Empty;
                 Quantity = 1;
-                
-                IsProductSearchOpen = false;
                 
                 // Toplam tutarı güncelle
                 CalculateTotalAmount();
@@ -828,12 +827,10 @@ namespace Nethesap.UI.ViewModels
                 if (product != null)
                 {
                     SelectedProduct = product;
-                    
-                    // Quantity'i sıfırla
+                    ProductSearchText = product.Name;
                     Quantity = 1;
-                    
-                    // Popup'ı kapat
                     IsProductSearchOpen = false;
+                    Console.WriteLine($"Ürün seçildi: {product.Name}");
                 }
             }
             catch (Exception ex)
@@ -846,19 +843,39 @@ namespace Nethesap.UI.ViewModels
         {
             try
             {
+                // _products koleksiyonunu ilk yüklemede veya boşsa doldur
+                if (_products == null || !_products.Any())
+                {
+                    _products = new ObservableCollection<Product>(await _productService.GetAllProductsAsync());
+                }
+
                 if (string.IsNullOrWhiteSpace(ProductSearchText))
                 {
-                    if (_products != null)
-                        Products = new ObservableCollection<Product>(_products);
+                    Products = new ObservableCollection<Product>(_products);
+                    IsProductSearchOpen = true;
                     return;
                 }
 
                 // Veritabanından arama yap
-                Products = await _productService.SearchProductsAsync(ProductSearchText);
+                var searchedProducts = await _productService.SearchProductsAsync(ProductSearchText);
+                Products = new ObservableCollection<Product>(searchedProducts);
+
+                // Arama sonuçlarını _products koleksiyonuna da ekle
+                foreach (var product in searchedProducts)
+                {
+                    if (!_products.Any(p => p.Id == product.Id))
+                    {
+                        _products.Add(product);
+                    }
+                }
+
+                // Popup'ı her durumda aç
+                IsProductSearchOpen = true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Ürün arama hatası: {ex.Message}");
+                MessageBox.Show($"Ürün arama sırasında hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

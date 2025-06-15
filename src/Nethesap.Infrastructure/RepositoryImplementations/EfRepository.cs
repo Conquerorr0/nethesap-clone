@@ -163,5 +163,11 @@ namespace Nethesap.Infrastructure.RepositoryImplementations
         {
             return await _context.SaveChangesAsync();
         }
+
+        // IQueryable döndüren Query metodu
+        public IQueryable<T> Query()
+        {
+            return _dbSet.AsQueryable();
+        }
     }
 } 
