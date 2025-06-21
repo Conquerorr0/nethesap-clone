@@ -9,6 +9,8 @@ using Nethesap.UI.Services;
 using System.Windows;
 using System.IO;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using Nethesap.UI.Commands;
+using Microsoft.Win32;
 
 namespace Nethesap.UI.ViewModels
 {

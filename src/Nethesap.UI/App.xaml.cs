@@ -10,6 +10,9 @@ using Nethesap.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Nethesap.UI.ViewModels;
 using System.Linq;
+using System.Text;
+using System.Globalization;
+using System.Threading;
 
 namespace Nethesap.UI;
 
@@ -20,10 +23,32 @@ public partial class App : System.Windows.Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
-        base.OnStartup(e);
-        
+        // Türk Lirası kültür ayarlarını yap
+        var culture = new CultureInfo("tr-TR");
+        culture.NumberFormat.CurrencySymbol = "₺";
+        Thread.CurrentThread.CurrentCulture = culture;
+        Thread.CurrentThread.CurrentUICulture = culture;
+        CultureInfo.DefaultThreadCurrentCulture = culture;
+        CultureInfo.DefaultThreadCurrentUICulture = culture;
+
+        // Uygulama genelinde işlenmeyen hataları yakala
+        AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
+        {
+            var exception = args.ExceptionObject as Exception;
+            LogException("Unhandled AppDomain Exception", exception);
+        };
+
+        // UI thread'inde işlenmeyen hataları yakala
+        this.DispatcherUnhandledException += (sender, args) =>
+        {
+            LogException("Unhandled UI Exception", args.Exception);
+            args.Handled = true; // Uygulamanın çökmesini engelle
+        };
+
         try
         {
+            base.OnStartup(e);
+            
             // Veritabanını başlat
             InitializeDatabase();
 
@@ -34,11 +59,42 @@ public partial class App : System.Windows.Application
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Uygulama başlatılırken hata oluştu: {ex.Message}");
-            Console.WriteLine($"Hata detayları: {ex.InnerException?.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            LogException("Application Startup Error", ex);
             MessageBox.Show($"Uygulama başlatılırken hata oluştu: {ex.Message}\n\nLütfen uygulama geliştiricisine bu hatayı bildirin.",
                 "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            
+            // Kritik bir hata olduğunda uygulamayı kapat
+            this.Shutdown();
+        }
+    }
+    
+    private void LogException(string context, Exception ex)
+    {
+        var errorBuilder = new StringBuilder();
+        errorBuilder.AppendLine($"[{DateTime.Now}] {context}:");
+        errorBuilder.AppendLine($"Message: {ex.Message}");
+        
+        if (ex.InnerException != null)
+        {
+            errorBuilder.AppendLine($"Inner Exception: {ex.InnerException.Message}");
+            errorBuilder.AppendLine($"Inner Stack Trace: {ex.InnerException.StackTrace}");
+        }
+        
+        errorBuilder.AppendLine($"Stack Trace: {ex.StackTrace}");
+        errorBuilder.AppendLine(new string('-', 80));
+        
+        // Konsola yazdır
+        Console.WriteLine(errorBuilder.ToString());
+        
+        // Hata log dosyasına yaz
+        try
+        {
+            string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "error_log.txt");
+            File.AppendAllText(logPath, errorBuilder.ToString());
+        }
+        catch
+        {
+            // Log dosyasına yazma hatalarını yoksay
         }
     }
     

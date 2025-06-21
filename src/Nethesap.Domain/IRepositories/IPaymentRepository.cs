@@ -13,5 +13,9 @@ namespace Nethesap.Domain.IRepositories
         Task<IEnumerable<Payment>> GetPaymentsByDateRangeAsync(DateTime startDate, DateTime endDate);
         Task<decimal> GetTotalPaymentsByDateRangeAsync(DateTime startDate, DateTime endDate);
         Task<IEnumerable<Payment>> GetPaymentsWithDetailsAsync(Guid paymentId);
+        Task<IEnumerable<Payment>> GetPaymentsByProductAsync(Guid productId);
+        Task<IEnumerable<Payment>> GetUnpaidPaymentsAsync();
+        Task<IEnumerable<Payment>> GetUpcomingPaymentsAsync(int daysThreshold);
+        Task<decimal> GetTotalUnpaidAmountByCustomerAsync(Guid customerId);
     }
 } 

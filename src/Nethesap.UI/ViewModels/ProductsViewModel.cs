@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Threading.Tasks;
 using Nethesap.Domain.Entities;
+using Nethesap.UI.Commands;
 using Nethesap.UI.Services;
 
 namespace Nethesap.UI.ViewModels
@@ -27,6 +28,7 @@ namespace Nethesap.UI.ViewModels
         private ICommand _saveEditCommand;
         private ICommand _cancelEditCommand;
         private ICommand _deleteProductCommand;
+        private ICommand _viewProductHistoryCommand;
         private int _lowStockThreshold = 5;
         private bool _isLoading;
         private readonly ProductService _productService;
@@ -134,6 +136,7 @@ namespace Nethesap.UI.ViewModels
         public ICommand SaveEditCommand => _saveEditCommand ??= new RelayCommand(SaveEditedProduct);
         public ICommand CancelEditCommand => _cancelEditCommand ??= new RelayCommand(CancelEdit);
         public ICommand DeleteProductCommand => _deleteProductCommand ??= new RelayCommand<Product>(DeleteProduct);
+        public ICommand ViewProductHistoryCommand => _viewProductHistoryCommand ??= new RelayCommand<Product>(ViewProductHistory);
 
         // Constructor
         public ProductsViewModel()
@@ -346,6 +349,15 @@ namespace Nethesap.UI.ViewModels
             finally
             {
                 IsLoading = false;
+            }
+        }
+
+        private void ViewProductHistory(Product product)
+        {
+            if (product != null)
+            {
+                var salesViewModel = new SalesViewModel();
+                salesViewModel.ViewProductHistory(product);
             }
         }
 

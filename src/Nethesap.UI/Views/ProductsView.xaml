@@ -158,6 +158,13 @@
                                 <!-- Actions -->
                                 <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="8 16 8 16" HorizontalAlignment="Right">
                                     <Button Style="{StaticResource MaterialDesignIconButton}" 
+                                          Command="{Binding DataContext.ViewProductHistoryCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                          CommandParameter="{Binding}"
+                                          ToolTip="Satış Geçmişi">
+                                        <materialDesign:PackIcon Kind="History" />
+                                    </Button>
+                                    
+                                    <Button Style="{StaticResource MaterialDesignIconButton}" 
                                           Command="{Binding DataContext.EditProductCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                           CommandParameter="{Binding}"
                                           ToolTip="Düzenle">

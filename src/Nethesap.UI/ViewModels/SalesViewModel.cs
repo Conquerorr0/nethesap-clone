@@ -4,9 +4,11 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using Nethesap.Domain.Entities;
+using Nethesap.UI.Commands;
 using Nethesap.UI.Services;
 
 namespace Nethesap.UI.ViewModels
@@ -55,6 +57,14 @@ namespace Nethesap.UI.ViewModels
         private ICommand? _generateReportCommand;
         private ICommand? _searchCustomerCommand;
         private ICommand? _selectCustomerCommand;
+        private ICommand? _openPartialPaymentDialogCommand;
+        private ICommand? _makePartialPaymentCommand;
+        private ICommand? _cancelPartialPaymentCommand;
+        private ICommand? _viewProductHistoryCommand;
+        private ICommand? _closeProductHistoryCommand;
+        private ICommand? _viewPaymentHistoryCommand;
+        private ICommand? _closePaymentHistoryCommand;
+        private ICommand? _loadUnpaidSalesCommand;
         private bool _isLoading;
         private readonly ProductService _productService;
         private readonly CustomerService _customerService;
@@ -65,6 +75,19 @@ namespace Nethesap.UI.ViewModels
         private ObservableCollection<PaymentType> _paymentTypes = new ObservableCollection<PaymentType>();
         private ObservableCollection<PaymentMethod> _paymentMethods = new ObservableCollection<PaymentMethod>();
         private ObservableCollection<Product> _filteredProducts = new ObservableCollection<Product>();
+
+        private ObservableCollection<Payment> _productSaleHistory = new ObservableCollection<Payment>();
+        private ObservableCollection<Transaction> _paymentTransactions = new ObservableCollection<Transaction>();
+        private ObservableCollection<Payment> _unpaidSales = new ObservableCollection<Payment>();
+        
+        private bool _isPartialPaymentDialogOpen;
+        private bool _isProductHistoryDialogOpen;
+        private bool _isPaymentHistoryDialogOpen;
+        
+        private decimal _paidAmount;
+        private decimal _remainingAmount;
+        private Product _selectedHistoryProduct;
+        private Payment _selectedUnpaidSale;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -424,6 +447,118 @@ namespace Nethesap.UI.ViewModels
             }
         }
 
+        public ObservableCollection<Payment> ProductSaleHistory
+        {
+            get => _productSaleHistory;
+            set
+            {
+                _productSaleHistory = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public ObservableCollection<Transaction> PaymentTransactions
+        {
+            get => _paymentTransactions;
+            set
+            {
+                _paymentTransactions = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public ObservableCollection<Payment> UnpaidSales
+        {
+            get => _unpaidSales;
+            set
+            {
+                _unpaidSales = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IsPartialPaymentDialogOpen
+        {
+            get => _isPartialPaymentDialogOpen;
+            set
+            {
+                _isPartialPaymentDialogOpen = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IsProductHistoryDialogOpen
+        {
+            get => _isProductHistoryDialogOpen;
+            set
+            {
+                _isProductHistoryDialogOpen = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IsPaymentHistoryDialogOpen
+        {
+            get => _isPaymentHistoryDialogOpen;
+            set
+            {
+                _isPaymentHistoryDialogOpen = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public decimal PaidAmount
+        {
+            get => _paidAmount;
+            set
+            {
+                if (_paidAmount != value)
+                {
+                    _paidAmount = value;
+                    OnPropertyChanged();
+                    
+                    if (CurrentSale != null)
+                    {
+                        RemainingAmount = CurrentSale.TotalAmount - _paidAmount;
+                    }
+                }
+            }
+        }
+
+        public decimal RemainingAmount
+        {
+            get => _remainingAmount;
+            set
+            {
+                _remainingAmount = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public Product SelectedHistoryProduct
+        {
+            get => _selectedHistoryProduct;
+            set
+            {
+                _selectedHistoryProduct = value;
+                OnPropertyChanged();
+                if (value != null)
+                {
+                    LoadProductHistory();
+                }
+            }
+        }
+
+        public Payment SelectedUnpaidSale
+        {
+            get => _selectedUnpaidSale;
+            set
+            {
+                _selectedUnpaidSale = value;
+                OnPropertyChanged();
+            }
+        }
+
         // Commands
         public ICommand AddSaleCommand => _addSaleCommand ??= new RelayCommand(OpenNewSaleDialog);
         public ICommand SaveSaleCommand => _saveSaleCommand ??= new RelayCommand(SaveSale);
@@ -442,18 +577,52 @@ namespace Nethesap.UI.ViewModels
         public ICommand GenerateReportCommand => _generateReportCommand ??= new RelayCommand(GenerateReport);
         public ICommand SearchCustomerCommand => _searchCustomerCommand ??= new RelayCommand(OpenCustomerSearch);
         public ICommand SelectCustomerCommand => _selectCustomerCommand ??= new RelayCommand<Customer>(SelectCustomer);
+        public ICommand OpenPartialPaymentDialogCommand => _openPartialPaymentDialogCommand ??= new RelayCommand<Payment>(OpenPartialPaymentDialog);
+        public ICommand MakePartialPaymentCommand => _makePartialPaymentCommand ??= new RelayCommand(MakePartialPayment);
+        public ICommand CancelPartialPaymentCommand => _cancelPartialPaymentCommand ??= new RelayCommand(CancelPartialPayment);
+        public ICommand ViewProductHistoryCommand => _viewProductHistoryCommand ??= new RelayCommand<Product>(ViewProductHistory);
+        public ICommand CloseProductHistoryCommand => _closeProductHistoryCommand ??= new RelayCommand(CloseProductHistory);
+        public ICommand ViewPaymentHistoryCommand => _viewPaymentHistoryCommand ??= new RelayCommand<Payment>(ViewPaymentHistory);
+        public ICommand ClosePaymentHistoryCommand => _closePaymentHistoryCommand ??= new RelayCommand(ClosePaymentHistory);
+        public ICommand LoadUnpaidSalesCommand => _loadUnpaidSalesCommand ??= new RelayCommand(LoadUnpaidSales);
 
         // Constructor
         public SalesViewModel()
         {
             try
             {
-                Console.WriteLine("SalesViewModel başlatılıyor...");
+                System.Diagnostics.Debug.WriteLine("=== SalesViewModel CONSTRUCTOR BAŞLADI ===");
+                Console.WriteLine("=== SalesViewModel CONSTRUCTOR BAŞLADI ===");
                 
                 // Servisleri başlat
                 _productService = new ProductService();
                 _customerService = new CustomerService();
                 _saleService = new SaleService();
+                
+                System.Diagnostics.Debug.WriteLine("Servisler başlatıldı");
+                Console.WriteLine("Servisler başlatıldı");
+                
+                // Veritabanı bağlantısını basit şekilde test et (veri çekmeden)
+                try
+                {
+                    Console.WriteLine("Veritabanı bağlantısı test ediliyor...");
+                    using (var context = new Nethesap.Infrastructure.Data.AppDbContext())
+                    {
+                        bool canConnect = context.Database.CanConnect();
+                        Console.WriteLine($"Veritabanı bağlantısı: {(canConnect ? "BAŞARILI" : "BAŞARISIZ")}");
+                        
+                        // Veri çekme kısmını kaldırdık çünkü burada exception atıyordu
+                        if (canConnect)
+                        {
+                            Console.WriteLine("Veritabanı hazır, veri yükleme LoadDataAsync() ile yapılacak");
+                        }
+                    }
+                }
+                catch (Exception dbEx)
+                {
+                    Console.WriteLine($"Veritabanı bağlantı hatası: {dbEx.Message}");
+                    Console.WriteLine($"Inner Exception: {dbEx.InnerException?.Message}");
+                }
                 
                 // Koleksiyonları başlat
                 InitializeCollections();
@@ -462,8 +631,18 @@ namespace Nethesap.UI.ViewModels
                 StartDate = DateTime.Now.AddMonths(-1);
                 EndDate = DateTime.Now;
                 
-                // Veri yüklemeyi başlat
-                LoadDataAsync().ConfigureAwait(false);
+                // Veri yüklemeyi arka planda başlat (UI thread güvenli)
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await LoadDataAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Arka plan veri yükleme hatası: {ex.Message}");
+                    }
+                });
                 
                 Console.WriteLine("SalesViewModel başlatıldı.");
             }
@@ -542,119 +721,90 @@ namespace Nethesap.UI.ViewModels
 
         private async void SaveSale(object obj)
         {
+            IsLoading = true;
+            
+            System.Diagnostics.Debug.WriteLine("=== SATIŞ KAYDETME İŞLEMİ BAŞLADI ===");
+            Console.WriteLine("=== SATIŞ KAYDETME İŞLEMİ BAŞLADI ===");
+            
             try
             {
-                IsLoading = true;
-                
-                // Kontroller
-                if (CurrentSaleItems == null || !CurrentSaleItems.Any())
-                {
-                    MessageBox.Show("Satış boş olamaz! Lütfen en az bir ürün ekleyin.", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
+                // Basit kontroller
                 if (CurrentSale == null)
                 {
-                    MessageBox.Show("Geçerli bir satış bulunamadı!", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Satış bilgileri bulunamadı!", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    IsLoading = false;
                     return;
                 }
-
+                
                 if (SelectedCustomer == null)
                 {
-                    MessageBox.Show("Lütfen bir müşteri seçin!", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Lütfen bir müşteri seçiniz!", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    IsLoading = false;
                     return;
                 }
-
-                // Müşteri ID'sini doğru şekilde ayarla
-                CurrentSale.CustomerId = SelectedCustomer.Id;
-                CurrentSale.Customer = SelectedCustomer;
                 
-                Console.WriteLine($"Müşteri bilgileri: ID: {SelectedCustomer.Id}, Ad: {SelectedCustomer.FirstName} {SelectedCustomer.LastName}");
-                Console.WriteLine($"CurrentSale.CustomerId: {CurrentSale.CustomerId}");
-
-                try
+                if (CurrentSaleItems?.Count == 0)
                 {
-                    // Payment nesnesini hazırla
-                    var saleId = CurrentSale.Id == Guid.Empty ? Guid.NewGuid() : CurrentSale.Id;
-                    
-                    // Basit bir Payment nesnesi oluştur
-                    var saleToSave = new Payment
-                    {
-                        Id = saleId,
-                        CustomerId = SelectedCustomer.Id, // Doğrudan SelectedCustomer'dan al
-                        CreatedDate = DateTime.Now,
-                        Description = $"{SelectedCustomer.FirstName} {SelectedCustomer.LastName} - {DateTime.Now:dd.MM.yyyy}",
-                        PaymentMethod = PaymentMethod.Cash,
-                        PaymentType = PaymentType.Sale,
-                        TotalAmount = CurrentSaleItems.Sum(i => i.TotalPrice),
-                        PaymentItems = new List<PaymentItem>()
-                    };
-                    
-                    Console.WriteLine($"Kaydedilecek satış: ID: {saleToSave.Id}, Müşteri ID: {saleToSave.CustomerId}");
-                    
-                    // Yeni PaymentItem nesneleri oluştur ve PaymentId'yi doğru şekilde ayarla
-                    foreach (var item in CurrentSaleItems)
-                    {
-                        var newItem = new PaymentItem
-                        {
-                            Id = Guid.NewGuid(),
-                            PaymentId = saleId,
-                            ProductId = item.Product?.Id ?? item.ProductId,
-                            Quantity = item.Quantity,
-                            UnitPrice = item.UnitPrice,
-                            TotalPrice = item.TotalPrice
-                        };
-                        
-                        // Product navigation property'sini NULL olarak ayarla
-                        newItem.Product = null;
-                        
-                        // Yeni oluşturulan item'ı listeye ekle
-                        saleToSave.PaymentItems.Add(newItem);
-                        Console.WriteLine($"Ürün eklendi: ID: {newItem.ProductId}, Miktar: {newItem.Quantity}, Fiyat: {newItem.TotalPrice}");
-                    }
-                    
-                    Console.WriteLine($"Kaydedilecek satış: ID: {saleToSave.Id}, Müşteri: {saleToSave.CustomerId}, Ürün Sayısı: {saleToSave.PaymentItems.Count}, Toplam: {saleToSave.TotalAmount:C2}");
-                    
-                    // Satışı kaydet
-                    bool success = await _saleService.AddSaleAsync(saleToSave);
-                    
-                    if (success)
-                    {
-                        // Satış listesine ekle (UI güncelleme)
-                        saleToSave.Customer = SelectedCustomer; // UI için Customer referansını ekle
-                        Sales.Add(saleToSave);
-                        FilteredSales.Add(saleToSave);
-                        
-                        // İstatistikleri güncelle
-                        CalculateStatistics();
-                        
-                        // Başarılı mesajı göster
-                        MessageBox.Show($"Satış başarıyla kaydedildi.\nToplam Tutar: {saleToSave.TotalAmount:C2}", 
-                            "Başarılı", MessageBoxButton.OK, MessageBoxImage.Information);
-                        
-                        // Yeni satış formunu aç
-                        OpenNewSaleDialog(null);
-                    }
-                    else
-                    {
-                        MessageBox.Show("Satış kaydedilirken bir hata oluştu! Detaylar için konsol çıktısını kontrol edin.", 
-                            "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
+                    MessageBox.Show("Lütfen sepete ürün ekleyiniz!", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    IsLoading = false;
+                    return;
                 }
-                catch (Exception ex)
+                
+                Console.WriteLine($"Müşteri: {SelectedCustomer.FirstName} {SelectedCustomer.LastName}");
+                Console.WriteLine($"Toplam ürün sayısı: {CurrentSaleItems.Count}");
+                Console.WriteLine($"Toplam tutar: {CurrentSaleItems.Sum(item => item.TotalPrice):C2}");
+                
+                // CurrentSale'ı hazırla
+                CurrentSale.CustomerId = SelectedCustomer.Id;
+                CurrentSale.CreatedDate = DateTime.Now;
+                CurrentSale.PaymentType = PaymentType.Sale;
+                CurrentSale.PaymentMethod = PaymentMethod.Cash;
+                CurrentSale.PaymentItems = new List<PaymentItem>(CurrentSaleItems);
+                CurrentSale.TotalAmount = CurrentSaleItems.Sum(item => item.TotalPrice);
+                CurrentSale.PaidAmount = CurrentSale.TotalAmount; // Tam ödeme
+                CurrentSale.RemainingAmount = 0;
+                CurrentSale.IsFullyPaid = true;
+                
+                // PaymentItems için ID'leri kontrol et
+                foreach (var item in CurrentSale.PaymentItems)
                 {
-                    MessageBox.Show($"Satış servisinde hata: {ex.Message}\n\nDetaylar: {ex.InnerException?.Message}", 
-                        "Servis Hatası", MessageBoxButton.OK, MessageBoxImage.Error);
-                    Console.WriteLine($"SaleService.AddSaleAsync hatası: {ex.Message}");
-                    Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                    if (item.Id == Guid.Empty)
+                        item.Id = Guid.NewGuid();
+                    
+                    Console.WriteLine($"Satış kalemi: {item.Product?.Name ?? "Bilinmeyen"} - Adet: {item.Quantity} - Fiyat: {item.TotalPrice:C2}");
+                }
+                
+                // Satışı kaydet
+                Console.WriteLine("SaleService.AddSaleAsync çağrılıyor...");
+                bool result = await _saleService.AddSaleAsync(CurrentSale);
+                
+                if (result)
+                {
+                    MessageBox.Show("Satış başarıyla kaydedildi!", "Başarılı", MessageBoxButton.OK, MessageBoxImage.Information);
+                    IsNewSaleDialogOpen = false;
+                    await RefreshSalesAsync();
+                    
+                    // Temizle
+                    CurrentSale = null;
+                    CurrentSaleItems?.Clear();
+                    SelectedCustomer = null;
+                    SelectedProduct = null;
+                    Quantity = 1;
+                    
+                    Console.WriteLine("Satış kaydetme işlemi tamamlandı ve veriler temizlendi.");
+                }
+                else
+                {
+                    MessageBox.Show("Satış kaydedilemedi! Lütfen tekrar deneyiniz.", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Satış kaydedilirken hata oluştu: {ex.Message}\n\nDetaylar: {ex.InnerException?.Message}", 
-                    "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
-                Console.WriteLine($"SaveSale metodu hatası: {ex.Message}");
-                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                Console.WriteLine($"SaveSale metodunda hata: {ex.Message}");
+                Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
+                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+                
+                MessageBox.Show($"Satış kaydedilemedi!\n\nHata: {ex.Message}\n\nDetay: {ex.InnerException?.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -744,14 +894,14 @@ namespace Nethesap.UI.ViewModels
                     {
                         Id = Guid.NewGuid(),
                         ProductId = SelectedProduct.Id,
-                        Product = SelectedProduct, // Ürün bilgisini ekle
+                        Product = SelectedProduct, // Product nesnesini ekle, UI'da gösterim için gerekli
                         Quantity = Quantity,
                         UnitPrice = SelectedProduct.Price,
                         TotalPrice = SelectedProduct.Price * Quantity
                     };
 
                     CurrentSaleItems.Add(paymentItem);
-                    Console.WriteLine($"Yeni ürün eklendi: {paymentItem.Product.Name}, Miktar: {paymentItem.Quantity}");
+                    Console.WriteLine($"Yeni ürün eklendi: {SelectedProduct.Name}, Miktar: {paymentItem.Quantity}");
                 }
 
                 // Clear selection (ürün eklendikten sonra temizle, sonraki ekleme için)
@@ -1150,19 +1300,22 @@ namespace Nethesap.UI.ViewModels
                     var sales = await _saleService.GetAllSalesAsync();
                     if (sales != null && sales.Count > 0)
                     {
-                        foreach (var sale in sales)
+                        // UI Thread'de Collection'lara erişim
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
-                            Sales.Add(sale);
-                        }
+                            foreach (var sale in sales)
+                            {
+                                Sales.Add(sale);
+                            }
+                            // FilteredSales'i Sales ile güvenli bir şekilde senkronize et
+                            FilteredSales = new ObservableCollection<Payment>(Sales);
+                        });
                         Console.WriteLine($"{sales.Count} adet satış yüklendi.");
                     }
                     else
                     {
                         Console.WriteLine("Hiç satış verisi bulunamadı.");
                     }
-                    
-                    // FilteredSales'i Sales ile güvenli bir şekilde senkronize et
-                    FilteredSales = new ObservableCollection<Payment>(Sales);
                 }
                 catch (Exception ex)
                 {
@@ -1178,10 +1331,14 @@ namespace Nethesap.UI.ViewModels
                     
                     if (products != null && products.Count > 0)
                     {
-                        foreach (var product in products)
+                        // UI Thread'de Collection'lara erişim
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
-                            Products.Add(product);
-                        }
+                            foreach (var product in products)
+                            {
+                                Products.Add(product);
+                            }
+                        });
                         Console.WriteLine($"{products.Count} adet ürün yüklendi.");
                     }
                     else
@@ -1203,10 +1360,14 @@ namespace Nethesap.UI.ViewModels
                     
                     if (customers != null && customers.Count > 0)
                     {
-                        foreach (var customer in customers)
+                        // UI Thread'de Collection'lara erişim
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
-                            Customers.Add(customer);
-                        }
+                            foreach (var customer in customers)
+                            {
+                                Customers.Add(customer);
+                            }
+                        });
                         Console.WriteLine($"{customers.Count} adet müşteri yüklendi.");
                     }
                     else
@@ -1474,6 +1635,160 @@ namespace Nethesap.UI.ViewModels
             catch (Exception ex)
             {
                 MessageBox.Show($"İstatistikler hesaplanırken bir hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OpenPartialPaymentDialog(Payment payment)
+        {
+            if (payment != null)
+            {
+                SelectedSale = payment;
+                PaidAmount = 0;
+                RemainingAmount = payment.RemainingAmount;
+                IsPartialPaymentDialogOpen = true;
+            }
+        }
+
+        private void CancelPartialPayment(object obj)
+        {
+            IsPartialPaymentDialogOpen = false;
+        }
+
+        public async void ViewProductHistory(Product product)
+        {
+            if (product == null) return;
+
+            SelectedHistoryProduct = product;
+            await LoadProductHistory();
+            IsProductHistoryDialogOpen = true;
+        }
+
+        private async Task LoadProductHistory()
+        {
+            if (SelectedHistoryProduct == null) return;
+            
+            ProductSaleHistory = new ObservableCollection<Payment>(
+                await _saleService.GetProductPaymentHistoryAsync(SelectedHistoryProduct.Id)
+            );
+        }
+
+        private void CloseProductHistory(object obj)
+        {
+            IsProductHistoryDialogOpen = false;
+        }
+
+        private void ViewPaymentHistory(Payment payment)
+        {
+            if (payment != null && payment.Transactions != null)
+            {
+                SelectedSale = payment;
+                PaymentTransactions = new ObservableCollection<Transaction>(payment.Transactions);
+                IsPaymentHistoryDialogOpen = true;
+            }
+        }
+
+        private void ClosePaymentHistory(object obj)
+        {
+            IsPaymentHistoryDialogOpen = false;
+        }
+
+        private async Task LoadUnpaidSalesAsync()
+        {
+            try
+            {
+                IsLoading = true;
+                
+                var unpaidSales = await _saleService.GetUnpaidSalesAsync();
+                UnpaidSales = new ObservableCollection<Payment>(unpaidSales);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ödenmemiş satışlar yüklenirken bir hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+        
+        private async void LoadUnpaidSales(object obj)
+        {
+            await LoadUnpaidSalesAsync();
+        }
+
+        private async void MakePartialPayment(object obj)
+        {
+            try
+            {
+                if (SelectedUnpaidSale == null || PaidAmount <= 0)
+                {
+                    MessageBox.Show("Lütfen geçerli bir ödeme tutarı giriniz.", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var result = await _saleService.AddPartialPaymentAsync(SelectedUnpaidSale.Id, PaidAmount, PaymentMethod.Cash);
+
+                if (result)
+                {
+                    MessageBox.Show("Ödeme başarıyla kaydedildi.", "Başarılı", MessageBoxButton.OK, MessageBoxImage.Information);
+                    await LoadUnpaidSalesAsync();
+                    IsPartialPaymentDialogOpen = false;
+                    PaidAmount = 0;
+                }
+                else
+                {
+                    MessageBox.Show("Ödeme kaydedilirken bir hata oluştu.", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ödeme işlemi sırasında hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        // Test metodu - Database bağlantısını kontrol etmek için
+        private async Task<bool> TestDatabaseConnectionAsync()
+        {
+            try
+            {
+                Console.WriteLine("=== DATABASE CONNECTION TEST BAŞLADI ===");
+                
+                // Test 1: Basic connection
+                using (var context = new Nethesap.Infrastructure.Data.AppDbContext())
+                {
+                    bool canConnect = context.Database.CanConnect();
+                    Console.WriteLine($"Can Connect: {canConnect}");
+                    
+                    if (!canConnect)
+                    {
+                        Console.WriteLine("HATA: Database'e bağlanılamıyor!");
+                        return false;
+                    }
+                }
+                
+                // Test 2: Service test
+                try
+                {
+                    var customers = await _customerService.GetAllCustomersAsync();
+                    Console.WriteLine($"Müşteri servisi çalışıyor. Müşteri sayısı: {customers.Count}");
+                    
+                    var products = await _productService.GetAllProductsAsync();
+                    Console.WriteLine($"Ürün servisi çalışıyor. Ürün sayısı: {products.Count}");
+                    
+                    Console.WriteLine("=== DATABASE CONNECTION TEST BAŞARILI ===");
+                    return true;
+                }
+                catch (Exception serviceEx)
+                {
+                    Console.WriteLine($"Servis testi başarısız: {serviceEx.Message}");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Database connection test hatası: {ex.Message}");
+                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+                return false;
             }
         }
     }

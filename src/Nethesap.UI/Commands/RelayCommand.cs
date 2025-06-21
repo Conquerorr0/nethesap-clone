@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Input;
 
-namespace Nethesap.UI.ViewModels
+namespace Nethesap.UI.Commands
 {
     public class RelayCommand : ICommand
     {

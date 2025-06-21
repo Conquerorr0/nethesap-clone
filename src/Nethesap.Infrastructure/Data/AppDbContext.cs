@@ -89,26 +89,68 @@ namespace Nethesap.Infrastructure.Data
             modelBuilder.Entity<Payment>(entity =>
             {
                 entity.HasKey(e => e.Id);
+                entity.Property(e => e.CustomerId).IsRequired();
                 entity.Property(e => e.TotalAmount).HasPrecision(18, 2);
+                entity.Property(e => e.PaidAmount).HasPrecision(18, 2);
+                entity.Property(e => e.RemainingAmount).HasPrecision(18, 2);
                 entity.Property(e => e.Description).HasMaxLength(500);
+                
+                // Explicit foreign key configuration to avoid shadow properties
+                entity.HasOne(p => p.Customer)
+                    .WithMany()
+                    .HasForeignKey(p => p.CustomerId)
+                    .HasConstraintName("FK_Payment_Customer")
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // PaymentItem konfigürasyonu
             modelBuilder.Entity<PaymentItem>(entity =>
             {
                 entity.HasKey(e => e.Id);
+                entity.Property(e => e.PaymentId).IsRequired();
+                entity.Property(e => e.ProductId).IsRequired();
                 entity.Property(e => e.Quantity).IsRequired();
                 entity.Property(e => e.UnitPrice).HasPrecision(18, 2);
                 entity.Property(e => e.TotalPrice).HasPrecision(18, 2);
+                
+                // Explicit foreign key configurations to avoid shadow properties
+                entity.HasOne(pi => pi.Payment)
+                    .WithMany(p => p.PaymentItems)
+                    .HasForeignKey(pi => pi.PaymentId)
+                    .HasConstraintName("FK_PaymentItem_Payment")
+                    .OnDelete(DeleteBehavior.Cascade);
+                
+                entity.HasOne(pi => pi.Product)
+                    .WithMany()
+                    .HasForeignKey(pi => pi.ProductId)
+                    .HasConstraintName("FK_PaymentItem_Product")
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Transaction konfigürasyonu
             modelBuilder.Entity<Transaction>(entity =>
             {
                 entity.HasKey(e => e.Id);
+                entity.Property(e => e.CustomerId).IsRequired();
+                entity.Property(e => e.PaymentId).IsRequired(false);
                 entity.Property(e => e.Amount).HasPrecision(18, 2);
                 entity.Property(e => e.Description).HasMaxLength(500);
-                entity.Property(e => e.TransactionDate).IsRequired();
+                entity.Property(e => e.TotalDueAmount).HasPrecision(18, 2);
+                entity.Property(e => e.PaidAmount).HasPrecision(18, 2);
+                
+                // Explicit foreign key configurations to avoid shadow properties
+                entity.HasOne(t => t.Customer)
+                    .WithMany()
+                    .HasForeignKey(t => t.CustomerId)
+                    .HasConstraintName("FK_Transaction_Customer")
+                    .OnDelete(DeleteBehavior.Restrict);
+                
+                entity.HasOne(t => t.Payment)
+                    .WithMany(p => p.Transactions)
+                    .HasForeignKey(t => t.PaymentId)
+                    .HasConstraintName("FK_Transaction_Payment")
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             // Global query filtreleri
