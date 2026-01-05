@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows;
 using Nethesap.Domain.Entities;
 using Nethesap.UI.Commands;
 using Nethesap.UI.Services;
@@ -27,6 +28,8 @@ namespace Nethesap.UI.ViewModels
         private bool _isLoading;
         private readonly CustomerService _customerService;
 
+        public static ObservableCollection<Customer> GlobalCustomerList { get; private set; } = new ObservableCollection<Customer>();
+
         public event PropertyChangedEventHandler PropertyChanged;
 
         // Properties
@@ -36,6 +39,7 @@ namespace Nethesap.UI.ViewModels
             set
             {
                 _customers = value;
+                GlobalCustomerList = value; // Static listeyi de güncelle
                 OnPropertyChanged();
             }
         }
@@ -140,12 +144,14 @@ namespace Nethesap.UI.ViewModels
                 IsLoading = true;
                 Customers = await _customerService.GetAllCustomersAsync();
                 FilteredCustomers = new ObservableCollection<Customer>(Customers);
+                GlobalCustomerList = Customers; // Static listeyi de güncelle
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Müşterileri yükleme hatası: {ex.Message}");
                 Customers = new ObservableCollection<Customer>();
                 FilteredCustomers = new ObservableCollection<Customer>();
+                GlobalCustomerList = Customers; // Static listeyi de güncelle
             }
             finally
             {
@@ -175,6 +181,7 @@ namespace Nethesap.UI.ViewModels
                     // UI'ı güncelle
                     Customers.Add(NewCustomer);
                     FilteredCustomers.Add(NewCustomer);
+                    GlobalCustomerList.Add(NewCustomer); // Static listeyi de güncelle
                     IsAddDialogOpen = false;
                     NewCustomer = new Customer();
                 }
@@ -204,8 +211,37 @@ namespace Nethesap.UI.ViewModels
         {
             if (customer == null) return;
 
-            // Burada işlem geçmişi gösterme mantığı olacak
-            Console.WriteLine($"{customer.FirstName} {customer.LastName} için işlem geçmişi gösteriliyor.");
+            try
+            {
+                // Ana view model üzerinden müşteri detay sayfasına git
+                var mainViewModel = System.Windows.Application.Current.MainWindow.DataContext as MainViewModel;
+                if (mainViewModel == null)
+                {
+                    Console.WriteLine("MainViewModel bulunamadı, müşteri detayına gidilemedi.");
+                    return;
+                }
+
+                // Müşteriyi işlem geçmişi ile birlikte yeniden yükle
+                using (var context = new Nethesap.Infrastructure.Data.AppDbContext())
+                {
+                    var customerRepository = new Nethesap.Infrastructure.RepositoryImplementations.CustomerRepository(context);
+                    var customerWithTransactions = customerRepository.GetCustomerWithTransactionsAsync(customer.Id).GetAwaiter().GetResult();
+
+                    if (customerWithTransactions == null)
+                    {
+                        Console.WriteLine($"ID'si {customer.Id} olan müşteri veritabanında bulunamadı, mevcut nesne ile devam ediliyor.");
+                        customerWithTransactions = customer;
+                    }
+
+                    mainViewModel.NavigateToCustomerDetail(customerWithTransactions);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"İşlem geçmişi gösterilirken hata oluştu: {ex.Message}");
+                Console.WriteLine($"InnerException: {ex.InnerException?.Message}");
+                MessageBox.Show($"Müşteri işlem geçmişi gösterilirken bir hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)

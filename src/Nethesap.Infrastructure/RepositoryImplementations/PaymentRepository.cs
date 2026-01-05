@@ -94,6 +94,8 @@ namespace Nethesap.Infrastructure.RepositoryImplementations
             return await _dbSet
                 .Include(p => p.Customer)
                 .Include(p => p.PaymentItems)
+                    .ThenInclude(pi => pi.Product)
+                .Include(p => p.Transactions)
                 .Where(p => p.PaymentItems.Any(pi => pi.ProductId == productId))
                 .OrderByDescending(p => p.CreatedDate)
                 .ToListAsync();

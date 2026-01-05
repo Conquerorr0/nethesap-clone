@@ -105,7 +105,10 @@ namespace Nethesap.UI.ViewModels
 
         public void NavigateToProducts()
         {
-            CurrentView = new ProductsView { DataContext = new ProductsViewModel() };
+            // Use the singleton instance and refresh its data
+            var productsViewModel = ProductsViewModel.Instance;
+            _ = productsViewModel.RefreshDataAsync(); // Fire and forget
+            CurrentView = new ProductsView { DataContext = productsViewModel };
             CurrentViewTitle = "Ürünler";
         }
 
@@ -140,4 +143,4 @@ namespace Nethesap.UI.ViewModels
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
-} 
+}

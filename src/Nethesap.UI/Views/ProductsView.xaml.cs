@@ -12,7 +12,7 @@ public partial class ProductsView : System.Windows.Controls.UserControl
         
         if (DesignerProperties.GetIsInDesignMode(this) == false && DataContext == null)
         {
-            DataContext = new ProductsViewModel();
+            DataContext = ProductsViewModel.Instance;
         }
     }
 }

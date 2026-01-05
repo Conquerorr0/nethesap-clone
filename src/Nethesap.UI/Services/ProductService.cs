@@ -13,17 +13,19 @@ namespace Nethesap.UI.Services
     /// <summary>
     /// Ürün verilerini yönetmek için kullanılan servis sınıfı
     /// </summary>
-    public class ProductService
+    public class ProductService : IDisposable
     {
         private readonly IRepository<Product> _productRepository;
+        private readonly AppDbContext _dbContext;
+        private bool _disposed = false;
 
         /// <summary>
         /// ProductService sınıfının constructor'ı
         /// </summary>
         public ProductService()
         {
-            var dbContext = new AppDbContext();
-            _productRepository = new EfRepository<Product>(dbContext);
+            _dbContext = new AppDbContext();
+            _productRepository = new EfRepository<Product>(_dbContext);
         }
 
         /// <summary>
@@ -169,14 +171,25 @@ namespace Nethesap.UI.Services
         {
             try
             {
+                if (product == null || product.Id == Guid.Empty)
+                {
+                    Console.WriteLine("Ürün güncelleme hatası: Ürün veya ID geçersiz!");
+                    return false;
+                }
+
                 product.UpdatedAt = DateTime.UtcNow;
                 await _productRepository.UpdateAsync(product);
+                
+                // Değişikliklerin kalıcı olduğundan emin olmak için context'i temizle
+                _dbContext.ChangeTracker.Clear();
+                
                 return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Ürün güncellenirken hata oluştu: {ex.Message}");
                 Console.WriteLine($"InnerException: {ex.InnerException?.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
                 return false;
             }
         }
@@ -218,6 +231,27 @@ namespace Nethesap.UI.Services
                 Console.WriteLine($"Düşük stoklu ürünler getirilirken hata oluştu: {ex.Message}");
                 Console.WriteLine($"InnerException: {ex.InnerException?.Message}");
                 return new ObservableCollection<Product>();
+            }
+        }
+
+        /// <summary>
+        /// IDisposable implementasyonu - kaynakları temizler
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    _dbContext?.Dispose();
+                }
+                _disposed = true;
             }
         }
     }

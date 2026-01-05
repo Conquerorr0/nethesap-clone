@@ -14,6 +14,9 @@ namespace Nethesap.UI.ViewModels
 {
     public class ProductsViewModel : INotifyPropertyChanged
     {
+        // Singleton instance
+        private static ProductsViewModel _instance;
+        
         private ObservableCollection<Product> _products;
         private ObservableCollection<Product> _filteredProducts;
         private string _searchText;
@@ -35,6 +38,19 @@ namespace Nethesap.UI.ViewModels
 
         public event PropertyChangedEventHandler PropertyChanged;
 
+        // Singleton property
+        public static ProductsViewModel Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = new ProductsViewModel();
+                }
+                return _instance;
+            }
+        }
+
         // Properties
         public ObservableCollection<Product> Products
         {
@@ -43,7 +59,7 @@ namespace Nethesap.UI.ViewModels
             {
                 _products = value;
                 OnPropertyChanged();
-                FilterProducts();
+                _ = FilterProductsAsync();
             }
         }
 
@@ -64,7 +80,7 @@ namespace Nethesap.UI.ViewModels
             {
                 _searchText = value;
                 OnPropertyChanged();
-                FilterProducts();
+                _ = FilterProductsAsync();
             }
         }
 
@@ -138,16 +154,22 @@ namespace Nethesap.UI.ViewModels
         public ICommand DeleteProductCommand => _deleteProductCommand ??= new RelayCommand<Product>(DeleteProduct);
         public ICommand ViewProductHistoryCommand => _viewProductHistoryCommand ??= new RelayCommand<Product>(ViewProductHistory);
 
-        // Constructor
-        public ProductsViewModel()
+        // Constructor - Made private for singleton pattern
+        private ProductsViewModel()
         {
             _productService = new ProductService();
             NewProduct = new Product();
-            LoadProducts();
+            _ = LoadProductsAsync(); // Fire and forget
+        }
+
+        // Public method to refresh data
+        public async Task RefreshDataAsync()
+        {
+            await LoadProductsAsync();
         }
 
         // Methods
-        private async void FilterProducts()
+        private async Task FilterProductsAsync()
         {
             try
             {
@@ -168,7 +190,7 @@ namespace Nethesap.UI.ViewModels
             }
         }
 
-        private async void LoadProducts()
+        public async Task LoadProductsAsync()
         {
             try
             {
@@ -284,7 +306,7 @@ namespace Nethesap.UI.ViewModels
                     }
 
                     // Filtrelenmiş listeyi güncelle
-                    FilterProducts();
+                    _ = FilterProductsAsync();
 
                     IsEditDialogOpen = false;
                 }
@@ -333,7 +355,7 @@ namespace Nethesap.UI.ViewModels
                     {
                         // UI'dan ürünü kaldır
                         Products.Remove(product);
-                        FilterProducts();
+                        _ = FilterProductsAsync();
                     }
                     else
                     {

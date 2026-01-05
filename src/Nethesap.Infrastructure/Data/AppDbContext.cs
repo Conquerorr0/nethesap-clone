@@ -2,6 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Nethesap.Domain.Entities;
 using System;
 using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Nethesap.Infrastructure.Data
 {
@@ -11,15 +14,21 @@ namespace Nethesap.Infrastructure.Data
 
         static AppDbContext()
         {
-            // Statik olarak veritabanı yolu belirle
-            string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string dbFolder = Path.Combine(appDataPath, "Nethesap");
-            
+            // Taşınabilir kullanım için veritabanı yolunu .exe'nin bulunduğu dizine göre ayarla
+            // Uygulamanın çalıştığı temel dizin (portable senaryo için flash bellekten de çalışır)
+            string baseDir = AppContext.BaseDirectory;
+
+            // İsteğe göre doğrudan baseDir altına da koyabilirsin:
+            // DefaultDbPath = Path.Combine(baseDir, "nethesap.db");
+
+            // Daha düzenli olması için "Data" klasörü altında tutalım
+            string dbFolder = Path.Combine(baseDir, "Data");
+
             if (!Directory.Exists(dbFolder))
             {
                 Directory.CreateDirectory(dbFolder);
             }
-            
+
             DefaultDbPath = Path.Combine(dbFolder, "nethesap.db");
             Console.WriteLine($"Veritabanı yolu: {DefaultDbPath}");
         }
@@ -45,7 +54,8 @@ namespace Nethesap.Infrastructure.Data
                 try
                 {
                     // SQLite bağlantısını yapılandır
-                    optionsBuilder.UseSqlite($"Data Source={DefaultDbPath}");
+                    optionsBuilder.UseSqlite($"Data Source={DefaultDbPath}")
+                        .ConfigureWarnings(warnings => warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.NavigationBaseIncludeIgnored));
                     Console.WriteLine($"SQLite veritabanı yapılandırıldı");
                 }
                 catch (Exception ex)
@@ -97,7 +107,7 @@ namespace Nethesap.Infrastructure.Data
                 
                 // Explicit foreign key configuration to avoid shadow properties
                 entity.HasOne(p => p.Customer)
-                    .WithMany()
+                    .WithMany(c => c.Payments)
                     .HasForeignKey(p => p.CustomerId)
                     .HasConstraintName("FK_Payment_Customer")
                     .OnDelete(DeleteBehavior.Restrict);
@@ -140,7 +150,7 @@ namespace Nethesap.Infrastructure.Data
                 
                 // Explicit foreign key configurations to avoid shadow properties
                 entity.HasOne(t => t.Customer)
-                    .WithMany()
+                    .WithMany(c => c.Transactions)
                     .HasForeignKey(t => t.CustomerId)
                     .HasConstraintName("FK_Transaction_Customer")
                     .OnDelete(DeleteBehavior.Restrict);
@@ -189,6 +199,40 @@ namespace Nethesap.Infrastructure.Data
             catch (Exception ex)
             {
                 Console.WriteLine($"Veritabanı kayıt hatası: {ex.Message}");
+                Console.WriteLine($"InnerException: {ex.InnerException?.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                throw;
+            }
+        }
+
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            var entries = ChangeTracker.Entries()
+                .Where(e => e.Entity is BaseEntity && (
+                    e.State == EntityState.Added
+                    || e.State == EntityState.Modified));
+
+            foreach (var entityEntry in entries)
+            {
+                var entity = (BaseEntity)entityEntry.Entity;
+
+                if (entityEntry.State == EntityState.Added)
+                {
+                    entity.CreatedAt = DateTime.UtcNow;
+                }
+                else if (entityEntry.State == EntityState.Modified)
+                {
+                    entity.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+
+            try
+            {
+                return await base.SaveChangesAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Veritabanı kayıt hatası (async): {ex.Message}");
                 Console.WriteLine($"InnerException: {ex.InnerException?.Message}");
                 Console.WriteLine($"StackTrace: {ex.StackTrace}");
                 throw;

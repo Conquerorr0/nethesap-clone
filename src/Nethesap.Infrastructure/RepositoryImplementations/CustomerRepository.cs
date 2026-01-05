@@ -48,6 +48,10 @@ namespace Nethesap.Infrastructure.RepositoryImplementations
             return await _dbSet
                 .Include(c => c.Transactions)
                 .Include(c => c.Payments)
+                    .ThenInclude(p => p.PaymentItems)
+                        .ThenInclude(pi => pi.Product)
+                .Include(c => c.Payments)
+                    .ThenInclude(p => p.Transactions)
                 .FirstOrDefaultAsync(c => c.Id == customerId);
         }
 

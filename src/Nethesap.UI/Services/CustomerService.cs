@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Nethesap.Domain.Entities;
 using Nethesap.Domain.IRepositories;
 using Nethesap.Infrastructure.Data;
@@ -26,16 +27,39 @@ namespace Nethesap.UI.Services
             _customerRepository = new EfRepository<Customer>(dbContext);
         }
 
+        public event Action<Customer>? CustomerAdded;
+
         /// <summary>
-        /// Tüm müşterileri getirir
+        /// Tüm müşterileri getirir ve her müşteri için güncel bakiyeyi hesaplar
         /// </summary>
-        /// <returns>Müşteri listesi</returns>
+        /// <returns>Müşteri listesi (bakiye bilgileri güncel)</returns>
         public async Task<ObservableCollection<Customer>> GetAllCustomersAsync()
         {
             try
             {
-                var customers = await _customerRepository.GetAllAsync();
+                using (var dbContext = new AppDbContext())
+                {
+                    // Müşterileri Payments ile birlikte yükle
+                    var customers = await dbContext.Set<Customer>()
+                        .Include(c => c.Payments)
+                        .ToListAsync();
+
+                    // Her müşteri için güncel bakiyeyi hesapla
+                    foreach (var customer in customers)
+                    {
+                        if (customer.Payments != null && customer.Payments.Any())
+                        {
+                            // Payments'in RemainingAmount'larını toplayarak güncel borcu hesapla
+                            customer.Balance = customer.Payments.Sum(p => p.RemainingAmount);
+                        }
+                        else
+                        {
+                            customer.Balance = 0;
+                        }
+                    }
+
                 return new ObservableCollection<Customer>(customers);
+                }
             }
             catch (Exception ex)
             {
@@ -46,10 +70,10 @@ namespace Nethesap.UI.Services
         }
 
         /// <summary>
-        /// İsme göre müşteri arar
+        /// İsme göre müşteri arar ve her müşteri için güncel bakiyeyi hesaplar
         /// </summary>
         /// <param name="searchText">Aranacak metin</param>
-        /// <returns>Aranan isme göre filtrelenmiş müşteri listesi</returns>
+        /// <returns>Aranan isme göre filtrelenmiş müşteri listesi (bakiye bilgileri güncel)</returns>
         public async Task<ObservableCollection<Customer>> SearchCustomersAsync(string searchText)
         {
             try
@@ -59,14 +83,39 @@ namespace Nethesap.UI.Services
                     return await GetAllCustomersAsync();
                 }
 
-                var customers = await _customerRepository.FindAsync(c =>
-                    c.FirstName.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                    c.LastName.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                    c.Phone.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                    (c.Email != null && c.Email.Contains(searchText, StringComparison.OrdinalIgnoreCase))
-                );
+                // EF Core + SQLite için StringComparison parametresi desteklenmediği için
+                // ToLower() ile case-insensitive arama yapıyoruz ve null kontrollerini ekliyoruz.
+                string searchLower = searchText.ToLower();
+
+                using (var dbContext = new AppDbContext())
+                {
+                    // Müşterileri Payments ile birlikte yükle ve filtrele
+                    var customers = await dbContext.Set<Customer>()
+                        .Include(c => c.Payments)
+                        .Where(c =>
+                    (c.FirstName != null && c.FirstName.ToLower().Contains(searchLower)) ||
+                    (c.LastName != null && c.LastName.ToLower().Contains(searchLower)) ||
+                    (c.Phone != null && c.Phone.ToLower().Contains(searchLower)) ||
+                    (c.Email != null && c.Email.ToLower().Contains(searchLower))
+                        )
+                        .ToListAsync();
+
+                    // Her müşteri için güncel bakiyeyi hesapla
+                    foreach (var customer in customers)
+                    {
+                        if (customer.Payments != null && customer.Payments.Any())
+                        {
+                            // Payments'in RemainingAmount'larını toplayarak güncel borcu hesapla
+                            customer.Balance = customer.Payments.Sum(p => p.RemainingAmount);
+                        }
+                        else
+                        {
+                            customer.Balance = 0;
+                        }
+                    }
 
                 return new ObservableCollection<Customer>(customers);
+                }
             }
             catch (Exception ex)
             {
@@ -111,6 +160,7 @@ namespace Nethesap.UI.Services
 
                 customer.CreatedAt = DateTime.UtcNow;
                 await _customerRepository.AddAsync(customer);
+                CustomerAdded?.Invoke(customer); // Event tetikleniyor
                 return true;
             }
             catch (Exception ex)

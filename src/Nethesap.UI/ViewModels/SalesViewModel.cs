@@ -292,43 +292,32 @@ namespace Nethesap.UI.ViewModels
             {
                 _customerSearchText = value;
                 OnPropertyChanged();
-                
+
                 try
                 {
-                    // Arama işlemi için müşteri verilerini kontrol et
-                    if (_customers == null || _customers.Count == 0)
+                    var allCustomers = CustomersViewModel.GlobalCustomerList;
+                    ObservableCollection<Customer> newList;
+                    if (string.IsNullOrWhiteSpace(value))
                     {
-                        // Veritabanından müşterileri yükle
-                        SearchCustomersAsync();
-                        return;
-                    }
-                    
-                    // Her değişiklikte müşterileri filtrele
-                    if (!string.IsNullOrWhiteSpace(value))
-                    {
-                        // Arama için string'leri küçük harfe çevir (case-insensitive)
-                        var searchText = value.ToLower();
-                        
-                        var filtered = _customers.Where(c =>
-                            c.FirstName?.ToLower().Contains(searchText) == true ||
-                            c.LastName?.ToLower().Contains(searchText) == true ||
-                            c.Phone?.ToLower().Contains(searchText) == true ||
-                            c.Email?.ToLower().Contains(searchText) == true).ToList();
-                        
-                        Customers = new ObservableCollection<Customer>(filtered);
+                        newList = new ObservableCollection<Customer>(allCustomers.OrderBy(c => c.FirstName).ThenBy(c => c.LastName));
                     }
                     else
                     {
-                        // Boş metin ise tüm müşterileri göster
-                        Customers = new ObservableCollection<Customer>(_customers);
+                        var searchText = value.ToLower();
+                        var filtered = allCustomers.Where(c =>
+                            c.FirstName?.ToLower().Contains(searchText) == true ||
+                            c.LastName?.ToLower().Contains(searchText) == true ||
+                            c.Phone?.ToLower().Contains(searchText) == true ||
+                            c.Email?.ToLower().Contains(searchText) == true)
+                            .OrderBy(c => c.FirstName).ThenBy(c => c.LastName).ToList();
+                        newList = new ObservableCollection<Customer>(filtered);
                     }
-                    
-                    // Popup'ı her durumda aç
+                    Customers = newList;
                     IsCustomerSearchOpen = true;
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Müşteri aramada hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+                    Console.WriteLine($"Müşteri aramada hata oluştu: {ex.Message}");
                 }
             }
         }
@@ -597,6 +586,7 @@ namespace Nethesap.UI.ViewModels
                 // Servisleri başlat
                 _productService = new ProductService();
                 _customerService = new CustomerService();
+                _customerService.CustomerAdded += OnCustomerAdded;
                 _saleService = new SaleService();
                 
                 System.Diagnostics.Debug.WriteLine("Servisler başlatıldı");
@@ -663,6 +653,38 @@ namespace Nethesap.UI.ViewModels
             }
         }
 
+        private async void OnCustomerAdded(Nethesap.Domain.Entities.Customer customer)
+        {
+            // Yeni müşteri hem _customers'a hem Customers'a eklenmeli
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                _customers.Add(customer);
+                Customers.Add(customer);
+            });
+        }
+
+        private async Task RefreshCustomersAsync()
+        {
+            try
+            {
+                var customers = await _customerService.GetAllCustomersAsync();
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _customers.Clear();
+                    Customers.Clear();
+                    foreach (var c in customers)
+                    {
+                        _customers.Add(c);
+                        Customers.Add(c);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Müşteri listesi güncellenirken hata oluştu: {ex.Message}");
+            }
+        }
+
         // Methods
         private void OpenNewSaleDialog(object obj)
         {
@@ -709,6 +731,10 @@ namespace Nethesap.UI.ViewModels
                 
                 // Satış formunu aç
                 IsNewSaleDialogOpen = true;
+
+                // Ödeme alanlarını sıfırla
+                PaidAmount = 0;
+                RemainingAmount = 0;
             }
             catch (Exception ex)
             {
@@ -761,9 +787,32 @@ namespace Nethesap.UI.ViewModels
                 CurrentSale.PaymentMethod = PaymentMethod.Cash;
                 CurrentSale.PaymentItems = new List<PaymentItem>(CurrentSaleItems);
                 CurrentSale.TotalAmount = CurrentSaleItems.Sum(item => item.TotalPrice);
-                CurrentSale.PaidAmount = CurrentSale.TotalAmount; // Tam ödeme
-                CurrentSale.RemainingAmount = 0;
-                CurrentSale.IsFullyPaid = true;
+                
+                // Kullanıcının belirttiği ödenen tutarı doğrula
+                var paidAmount = PaidAmount;
+                
+                // Eğer kullanıcı ödeme alanını boş bırakırsa (0 veya negatif), borca yaz (hiç ödeme yok)
+                if (paidAmount <= 0)
+                {
+                    paidAmount = 0;
+                }
+                
+                // Toplamdan fazla ödeme yapılmasına izin verme
+                if (paidAmount > CurrentSale.TotalAmount)
+                {
+                    paidAmount = CurrentSale.TotalAmount;
+                }
+                
+                CurrentSale.PaidAmount = paidAmount;
+                CurrentSale.RemainingAmount = CurrentSale.TotalAmount - paidAmount;
+                if (CurrentSale.RemainingAmount < 0)
+                {
+                    CurrentSale.RemainingAmount = 0;
+                }
+                CurrentSale.IsFullyPaid = CurrentSale.RemainingAmount == 0;
+                
+                // ViewModel tarafındaki kalan tutarı da güncelle
+                RemainingAmount = CurrentSale.RemainingAmount;
                 
                 // PaymentItems için ID'leri kontrol et
                 foreach (var item in CurrentSale.PaymentItems)
@@ -790,6 +839,8 @@ namespace Nethesap.UI.ViewModels
                     SelectedCustomer = null;
                     SelectedProduct = null;
                     Quantity = 1;
+                    PaidAmount = 0;
+                    RemainingAmount = 0;
                     
                     Console.WriteLine("Satış kaydetme işlemi tamamlandı ve veriler temizlendi.");
                 }
@@ -1044,6 +1095,13 @@ namespace Nethesap.UI.ViewModels
                     // Güncellendiğini bildir
                     OnPropertyChanged(nameof(CurrentSale));
                     
+                    // Kalan tutarı güncelle
+                    RemainingAmount = CurrentSale.TotalAmount - PaidAmount;
+                    if (RemainingAmount < 0)
+                    {
+                        RemainingAmount = 0;
+                    }
+                    
                     // Debug amaçlı konsola yazdır
                     Console.WriteLine($"Toplam tutar hesaplandı: {total:C2} - {CurrentSaleItems.Count} ürün");
                 }
@@ -1052,6 +1110,7 @@ namespace Nethesap.UI.ViewModels
                     // Hiç ürün yoksa toplam sıfırla
                     CurrentSale.TotalAmount = 0;
                     OnPropertyChanged(nameof(CurrentSale));
+                    RemainingAmount = 0;
                 }
             }
             catch (Exception ex)
@@ -1360,18 +1419,25 @@ namespace Nethesap.UI.ViewModels
                     
                     if (customers != null && customers.Count > 0)
                     {
-                        // UI Thread'de Collection'lara erişim
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
-                            foreach (var customer in customers)
+                            _customers.Clear();
+                            Customers.Clear();
+                            foreach (var c in customers)
                             {
-                                Customers.Add(customer);
+                                _customers.Add(c);
+                                Customers.Add(c);
                             }
                         });
                         Console.WriteLine($"{customers.Count} adet müşteri yüklendi.");
                     }
                     else
                     {
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            _customers = new ObservableCollection<Customer>();
+                            Customers = new ObservableCollection<Customer>();
+                        });
                         Console.WriteLine("Hiç müşteri verisi bulunamadı.");
                     }
                 }
@@ -1643,6 +1709,7 @@ namespace Nethesap.UI.ViewModels
             if (payment != null)
             {
                 SelectedSale = payment;
+                SelectedUnpaidSale = payment;
                 PaidAmount = 0;
                 RemainingAmount = payment.RemainingAmount;
                 IsPartialPaymentDialogOpen = true;
@@ -1677,13 +1744,27 @@ namespace Nethesap.UI.ViewModels
             IsProductHistoryDialogOpen = false;
         }
 
-        private void ViewPaymentHistory(Payment payment)
+        private async void ViewPaymentHistory(Payment payment)
         {
-            if (payment != null && payment.Transactions != null)
+            if (payment != null)
             {
-                SelectedSale = payment;
-                PaymentTransactions = new ObservableCollection<Transaction>(payment.Transactions);
-                IsPaymentHistoryDialogOpen = true;
+                // Ödeme detaylarını tekrar veritabanından al, çünkü transactions eksik olabilir
+                var fullPayment = await _saleService.GetSaleDetailsAsync(payment.Id);
+                
+                if (fullPayment != null)
+                {
+                    SelectedSale = fullPayment;
+                    // İşlemleri tarihe göre sıralayarak göster
+                    var sortedTransactions = (fullPayment.Transactions ?? new List<Transaction>())
+                        .OrderByDescending(t => t.TransactionDate)
+                        .ToList();
+                    PaymentTransactions = new ObservableCollection<Transaction>(sortedTransactions);
+                    IsPaymentHistoryDialogOpen = true;
+                }
+                else
+                {
+                    MessageBox.Show("Ödeme detayları yüklenemedi.", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
@@ -1716,6 +1797,32 @@ namespace Nethesap.UI.ViewModels
             await LoadUnpaidSalesAsync();
         }
 
+        // Method to refresh product data from database
+        public async Task RefreshProductDataAsync()
+        {
+            try
+            {
+                // Reload products from database
+                _products = new ObservableCollection<Product>(await _productService.GetAllProductsAsync());
+                
+                // If there's a search text, apply the filter
+                if (!string.IsNullOrWhiteSpace(ProductSearchText))
+                {
+                    var searchedProducts = await _productService.SearchProductsAsync(ProductSearchText);
+                    Products = new ObservableCollection<Product>(searchedProducts);
+                }
+                else
+                {
+                    // Otherwise show all products
+                    Products = new ObservableCollection<Product>(_products);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ürün verileri yenilenirken hata oluştu: {ex.Message}");
+            }
+        }
+
         private async void MakePartialPayment(object obj)
         {
             try
@@ -1731,7 +1838,11 @@ namespace Nethesap.UI.ViewModels
                 if (result)
                 {
                     MessageBox.Show("Ödeme başarıyla kaydedildi.", "Başarılı", MessageBoxButton.OK, MessageBoxImage.Information);
+                    
+                    // Satış listesini ve ödenmemiş satışları yenile
+                    await RefreshSalesAsync();
                     await LoadUnpaidSalesAsync();
+                    
                     IsPartialPaymentDialogOpen = false;
                     PaidAmount = 0;
                 }

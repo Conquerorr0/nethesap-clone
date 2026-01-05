@@ -21,6 +21,12 @@ namespace Nethesap.UI.ViewModels
         private DateTime? _startDate;
         private DateTime? _endDate;
         private ICommand _backCommand;
+        private ICommand _viewSaleDetailsCommand;
+        private ICommand _closeSaleDetailsCommand;
+        private decimal _currentBalance;
+        private Payment _selectedSale;
+        private bool _isSaleDetailsDialogOpen;
+        private SaleService _saleService;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -33,6 +39,19 @@ namespace Nethesap.UI.ViewModels
                 _customer = value;
                 OnPropertyChanged();
                 FilterTransactions();
+            }
+        }
+
+        /// <summary>
+        /// İlgili müşterinin tüm işlemlerine göre hesaplanan güncel bakiye (borç/alacak)
+        /// </summary>
+        public decimal CurrentBalance
+        {
+            get => _currentBalance;
+            set
+            {
+                _currentBalance = value;
+                OnPropertyChanged();
             }
         }
 
@@ -79,17 +98,41 @@ namespace Nethesap.UI.ViewModels
             }
         }
 
+        public Payment SelectedSale
+        {
+            get => _selectedSale;
+            set
+            {
+                _selectedSale = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IsSaleDetailsDialogOpen
+        {
+            get => _isSaleDetailsDialogOpen;
+            set
+            {
+                _isSaleDetailsDialogOpen = value;
+                OnPropertyChanged();
+            }
+        }
+
         // Commands
         public ICommand BackCommand => _backCommand ??= new RelayCommand(GoBack);
+        public ICommand ViewSaleDetailsCommand => _viewSaleDetailsCommand ??= new RelayCommand<Transaction>(ViewSaleDetails);
+        public ICommand CloseSaleDetailsCommand => _closeSaleDetailsCommand ??= new RelayCommand(CloseSaleDetails);
 
         // Constructor
         public CustomerDetailViewModel(Customer customer)
         {
+            _saleService = new SaleService();
             Customer = customer;
             
-            // Set initial date range to last 30 days
-            EndDate = DateTime.Now;
-            StartDate = DateTime.Now.AddDays(-30);
+            // Tüm işlemleri göstermek için tarih filtresini başlangıçta null yap
+            // Kullanıcı isterse tarih aralığı seçebilir
+            EndDate = null;
+            StartDate = null;
             
             FilterTransactions();
         }
@@ -97,13 +140,16 @@ namespace Nethesap.UI.ViewModels
         // Methods
         private void FilterTransactions()
         {
-            if (Customer?.Transactions == null)
+            if (Customer == null)
             {
                 FilteredTransactions = new ObservableCollection<Transaction>();
+
+                // Hiç işlem yoksa bakiye 0 kabul et
+                CurrentBalance = 0;
                 return;
             }
 
-            IEnumerable<Transaction> filteredList = Customer.Transactions;
+            IEnumerable<Transaction> filteredList = Customer.Transactions ?? Enumerable.Empty<Transaction>();
 
             // Filter by date range
             if (StartDate.HasValue)
@@ -131,6 +177,25 @@ namespace Nethesap.UI.ViewModels
             filteredList = filteredList.OrderByDescending(t => t.TransactionDate);
 
             FilteredTransactions = new ObservableCollection<Transaction>(filteredList);
+
+            // Genel bakiye: ilgili müşterinin tüm satışlarındaki kalan borç toplamı
+            try
+            {
+                if (Customer.Payments != null && Customer.Payments.Any())
+                {
+                    // Her satışın RemainingAmount alanını toplayarak güncel borcu hesapla
+                    CurrentBalance = Customer.Payments.Sum(p => p.RemainingAmount);
+                }
+                else
+                {
+                    CurrentBalance = 0;
+                }
+            }
+            catch
+            {
+                // Her ihtimale karşı hata durumunda Customer.Balance'a geri düş
+                CurrentBalance = Customer?.Balance ?? 0;
+            }
         }
 
         private void GoBack(object obj)
@@ -141,6 +206,36 @@ namespace Nethesap.UI.ViewModels
             {
                 mainViewModel.NavigateToCustomers();
             }
+        }
+
+        private async void ViewSaleDetails(Transaction transaction)
+        {
+            if (transaction == null || !transaction.PaymentId.HasValue) return;
+
+            try
+            {
+                // Satış detaylarını getir
+                SelectedSale = await _saleService.GetSaleDetailsAsync(transaction.PaymentId.Value);
+                
+                if (SelectedSale != null)
+                {
+                    IsSaleDetailsDialogOpen = true;
+                }
+                else
+                {
+                    MessageBox.Show("Satış detayları bulunamadı.", "Bilgi", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Satış detayları getirilirken hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void CloseSaleDetails(object obj)
+        {
+            IsSaleDetailsDialogOpen = false;
+            SelectedSale = null;
         }
 
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)

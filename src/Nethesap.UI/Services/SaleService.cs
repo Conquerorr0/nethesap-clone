@@ -55,7 +55,8 @@ namespace Nethesap.UI.Services
             return _paymentRepository.Query()
                 .Include(p => p.Customer)
                 .Include(p => p.PaymentItems)
-                    .ThenInclude(pi => pi.Product);
+                    .ThenInclude(pi => pi.Product)
+                .Include(p => p.Transactions);
         }
 
         /// <summary>
@@ -351,9 +352,55 @@ namespace Nethesap.UI.Services
                         }
                     }
                     
+                    // Stok değişikliklerini veritabanına kaydet
+                    await _dbContext.SaveChangesAsync();
+                    
+                    // Satış işlemi için transaction kaydı oluştur (borç kaydı)
+                    var saleTransaction = new Transaction
+                    {
+                        Id = Guid.NewGuid(),
+                        CustomerId = payment.CustomerId,
+                        PaymentId = payment.Id,
+                        Amount = payment.TotalAmount,
+                        Type = TransactionType.Debt,
+                        Description = payment.Description ?? "Satış işlemi",
+                        TransactionDate = payment.CreatedDate,
+                        TotalDueAmount = payment.TotalAmount,
+                        PaidAmount = payment.PaidAmount
+                    };
+                    await _dbContext.Transactions.AddAsync(saleTransaction);
+
+                    // Anlık ödeme varsa ödeme transaction'ı oluştur (borcu azaltan kayıt)
+                    if (payment.PaidAmount > 0)
+                    {
+                        var paymentTransaction = new Transaction
+                        {
+                            Id = Guid.NewGuid(),
+                            CustomerId = payment.CustomerId,
+                            PaymentId = payment.Id,
+                            Amount = -payment.PaidAmount,
+                            Type = payment.IsFullyPaid ? TransactionType.FullPayment : TransactionType.PartialPayment,
+                            Description = $"Ödeme: {payment.PaidAmount:C2} ({payment.PaymentMethod})",
+                            TransactionDate = payment.CreatedDate,
+                            TotalDueAmount = payment.TotalAmount,
+                            PaidAmount = payment.PaidAmount
+                        };
+                        await _dbContext.Transactions.AddAsync(paymentTransaction);
+                    }
+                    
                     // Değişiklikleri kaydet
                     Console.WriteLine("SaveChanges çağrılıyor...");
                     await _dbContext.SaveChangesAsync();
+
+                    // Müşteri bakiyesini güncelle
+                    var transactionRepository = new TransactionRepository(_dbContext);
+                    var newBalance = await transactionRepository.GetCustomerBalanceAsync(payment.CustomerId);
+                    var customer = await _customerRepository.GetByIdAsync(payment.CustomerId);
+                    if (customer != null)
+                    {
+                        customer.Balance = newBalance;
+                        await _customerRepository.UpdateAsync(customer);
+                    }
                     Console.WriteLine("SaveChanges başarılı!");
                     
                     // Transaction'ı onayla
@@ -535,6 +582,7 @@ namespace Nethesap.UI.Services
                     .Include(p => p.Customer)
                     .Include(p => p.PaymentItems)
                         .ThenInclude(pi => pi.Product)
+                    .Include(p => p.Transactions)
                     .FirstOrDefaultAsync(p => p.Id == saleId);
 
                 return sale;
@@ -578,6 +626,7 @@ namespace Nethesap.UI.Services
         {
             try
             {
+                // 1) Asıl ödeme işlemi - transaction içinde
                 using (var transaction = await _dbContext.Database.BeginTransactionAsync())
                 {
                     try
@@ -602,13 +651,13 @@ namespace Nethesap.UI.Services
                         payment.RemainingAmount = payment.TotalAmount - payment.PaidAmount;
                         payment.IsFullyPaid = payment.RemainingAmount <= 0;
 
-                        // Transaction kaydı oluştur
+                        // Transaction kaydı oluştur (ödeme, borcu azaltmalı)
                         var paymentTransaction = new Transaction
                         {
                             Id = Guid.NewGuid(),
                             CustomerId = payment.CustomerId,
                             PaymentId = payment.Id,
-                            Amount = amount,
+                            Amount = -amount,
                             Type = payment.IsFullyPaid ? TransactionType.FullPayment : TransactionType.PartialPayment,
                             Description = $"Ödeme: {amount:C2} ({paymentMethod})",
                             TransactionDate = DateTime.Now,
@@ -624,7 +673,6 @@ namespace Nethesap.UI.Services
                         // Transaction'ı onayla
                         await transaction.CommitAsync();
                         Console.WriteLine($"Kısmi ödeme başarıyla eklendi: {amount:C2}");
-                        return true;
                     }
                     catch (Exception ex)
                     {
@@ -634,6 +682,30 @@ namespace Nethesap.UI.Services
                         return false;
                     }
                 }
+
+                // 2) Müşteri bakiyesi - en iyi çaba, hata olsa bile ödeme kayıtlı kalsın
+                try
+                {
+                    var transactionRepository = new TransactionRepository(_dbContext);
+                    // Tüm transaction'lara göre güncel bakiye
+                    var payment = await GetSaleByIdAsync(paymentId);
+                    if (payment != null)
+                    {
+                        var newBalance = await transactionRepository.GetCustomerBalanceAsync(payment.CustomerId);
+                        var customer = await _customerRepository.GetByIdAsync(payment.CustomerId);
+                        if (customer != null)
+                        {
+                            customer.Balance = newBalance;
+                            await _customerRepository.UpdateAsync(customer);
+                        }
+                    }
+                }
+                catch (Exception balanceEx)
+                {
+                    Console.WriteLine($"Müşteri bakiyesi güncellenirken hata oluştu (ödeme kayıtlı): {balanceEx.Message}");
+                }
+
+                return true;
             }
             catch (Exception ex)
             {
@@ -753,6 +825,20 @@ namespace Nethesap.UI.Services
                         _dbContext.Payments.Add(payment);
                         await _dbContext.SaveChangesAsync();
 
+                        // Stok miktarlarını güncelle
+                        foreach (var item in payment.PaymentItems)
+                        {
+                            var product = await _productRepository.GetByIdAsync(item.ProductId);
+                            if (product != null)
+                            {
+                                product.StockQuantity -= item.Quantity;
+                                _dbContext.Products.Update(product);
+                            }
+                        }
+                        
+                        // Stok değişikliklerini veritabanına kaydet
+                        await _dbContext.SaveChangesAsync();
+
                         // Transaction kaydı oluştur
                         var paymentTransaction = new Transaction
                         {
@@ -766,17 +852,6 @@ namespace Nethesap.UI.Services
                             TotalDueAmount = payment.TotalAmount,
                             PaidAmount = paidAmount
                         };
-
-                        // Stok miktarlarını güncelle
-                        foreach (var item in payment.PaymentItems)
-                        {
-                            var product = await _productRepository.GetByIdAsync(item.ProductId);
-                            if (product != null)
-                            {
-                                product.StockQuantity -= item.Quantity;
-                                _dbContext.Products.Update(product);
-                            }
-                        }
 
                         // Transaction kaydını ekle
                         await _dbContext.Transactions.AddAsync(paymentTransaction);

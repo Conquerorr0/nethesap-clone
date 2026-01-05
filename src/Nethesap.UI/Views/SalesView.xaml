@@ -186,9 +186,19 @@
                             <DataTemplate>
                                 <Button Command="{Binding DataContext.OpenPartialPaymentDialogCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                       CommandParameter="{Binding}"
-                                      Style="{StaticResource MaterialDesignIconButton}"
-                                      ToolTip="Ödeme Yap"
-                                      Visibility="{Binding IsFullyPaid, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=inverse}">
+                                      ToolTip="Ödeme Yap">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignIconButton}">
+                                            <!-- Varsayılan: Görünsün -->
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <!-- Kalan tutar 0 ise gizle -->
+                                                <DataTrigger Binding="{Binding RemainingAmount}" Value="0">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
                                     <materialDesign:PackIcon Kind="CashMultiple" />
                                 </Button>
                             </DataTemplate>

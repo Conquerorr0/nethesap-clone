@@ -106,7 +106,23 @@ namespace Nethesap.Infrastructure.RepositoryImplementations
         /// <param name="entity">Güncellenecek entity</param>
         public virtual async Task UpdateAsync(T entity)
         {
-            _dbSet.Update(entity);
+            if (entity == null)
+                throw new ArgumentNullException(nameof(entity));
+
+            // Entity'nin zaten track edilip edilmediğini kontrol et
+            var trackedEntity = await _dbSet.FindAsync(entity.Id);
+            
+            if (trackedEntity != null)
+            {
+                // Entity zaten context'te track ediliyor, değerleri güncelle
+                _context.Entry(trackedEntity).CurrentValues.SetValues(entity);
+            }
+            else
+            {
+                // Entity track edilmiyor, Update ile ekle
+                _dbSet.Update(entity);
+            }
+            
             await SaveChangesAsync();
         }
 
