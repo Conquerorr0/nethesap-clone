@@ -23,6 +23,7 @@ public class DashboardViewModel : INotifyPropertyChanged
     private double _chartMaxValue;
     private ObservableCollection<TransactionItem> _recentTransactions;
     private readonly SaleService _saleService;
+    private readonly CustomerService _customerService;
 
     public decimal TotalBalance
     {
@@ -110,6 +111,7 @@ public class DashboardViewModel : INotifyPropertyChanged
     public DashboardViewModel()
     {
         _saleService = new SaleService();
+        _customerService = new CustomerService();
         // Gerçek verileri yükle
         LoadDataAsync();
         ChartFormatter = value => value.ToString("C0");
@@ -119,10 +121,30 @@ public class DashboardViewModel : INotifyPropertyChanged
     {
         try
         {
-            // Varsayılan değerler
-            TotalBalance = 0;
-            TotalReceivables = 0;
-            TotalPayables = 0;
+            // Tüm satışları çek
+            var allSales = await _saleService.GetAllSalesAsync();
+            
+            // Finansal metrikleri hesapla
+            if (allSales != null && allSales.Any())
+            {
+                // Sadece satış tipindeki kayıtları al (iade hariç)
+                var sales = allSales.Where(s => s.PaymentType == PaymentType.Sale).ToList();
+                
+                // Genel Bakiye: Toplam satışlar (tüm satın alınan ürünlerin toplam değeri)
+                TotalBalance = sales.Sum(s => s.TotalAmount);
+                
+                // Toplam Alacak: Ödenen kısım
+                TotalReceivables = sales.Sum(s => s.PaidAmount);
+                
+                // Toplam Borç: Ödenmeyen kısım (kalan borç)
+                TotalPayables = sales.Sum(s => s.RemainingAmount);
+            }
+            else
+            {
+                TotalBalance = 0;
+                TotalReceivables = 0;
+                TotalPayables = 0;
+            }
 
             // Veritabanından son işlemleri al
             // Not: Burada gerçek bir servis kullanılmalı
@@ -137,7 +159,11 @@ public class DashboardViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             Console.WriteLine($"Veri yükleme hatası: {ex.Message}");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
             // Hata durumunda boş koleksiyonlar oluştur
+            TotalBalance = 0;
+            TotalReceivables = 0;
+            TotalPayables = 0;
             RecentTransactions = new ObservableCollection<TransactionItem>();
             ChartSeries = new SeriesCollection();
             ChartLabels = new string[0];

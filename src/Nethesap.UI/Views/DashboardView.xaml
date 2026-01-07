@@ -45,14 +45,14 @@
                                    Background="#E8F5E9"
                                    UniformCornerRadius="8">
                     <StackPanel Margin="16">
-                        <TextBlock Text="Genel Bakiye" 
+                        <TextBlock Text="Toplam Satışlar" 
                                  Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
                                  Foreground="#2E7D32"/>
                         <TextBlock Text="{Binding TotalBalance, StringFormat={}{0:C2}}" 
                                  FontSize="24" 
                                  FontWeight="Bold"
                                  Foreground="#1B5E20"/>
-                        <TextBlock Text="Son güncelleme: Bugün"
+                        <TextBlock Text="Tüm satın alınan ürünler"
                                  Style="{StaticResource MaterialDesignCaptionTextBlock}"
                                  Foreground="#43A047"/>
                     </StackPanel>
@@ -62,14 +62,14 @@
                                    Background="#E3F2FD"
                                    UniformCornerRadius="8">
                     <StackPanel Margin="16">
-                        <TextBlock Text="Toplam Alacak" 
+                        <TextBlock Text="Toplam Ödenen" 
                                  Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
                                  Foreground="#1976D2"/>
                         <TextBlock Text="{Binding TotalReceivables, StringFormat={}{0:C2}}"
                                  FontSize="24" 
                                  FontWeight="Bold"
                                  Foreground="#0D47A1"/>
-                        <TextBlock Text="14 açık hesap"
+                        <TextBlock Text="Tahsil edilen tutar"
                                  Style="{StaticResource MaterialDesignCaptionTextBlock}"
                                  Foreground="#1E88E5"/>
                     </StackPanel>
@@ -86,7 +86,7 @@
                                  FontSize="24" 
                                  FontWeight="Bold"
                                  Foreground="#BF360C"/>
-                        <TextBlock Text="7 açık hesap"
+                        <TextBlock Text="Ödenmeyen kısım"
                                  Style="{StaticResource MaterialDesignCaptionTextBlock}"
                                  Foreground="#E64A19"/>
                     </StackPanel>
