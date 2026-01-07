@@ -290,35 +290,15 @@ namespace Nethesap.UI.ViewModels
             get => _customerSearchText;
             set
             {
+                if (_customerSearchText == value) return;
                 _customerSearchText = value;
                 OnPropertyChanged();
 
-                try
-                {
-                    var allCustomers = CustomersViewModel.GlobalCustomerList;
-                    ObservableCollection<Customer> newList;
-                    if (string.IsNullOrWhiteSpace(value))
-                    {
-                        newList = new ObservableCollection<Customer>(allCustomers.OrderBy(c => c.FirstName).ThenBy(c => c.LastName));
-                    }
-                    else
-                    {
-                        var searchText = value.ToLower();
-                        var filtered = allCustomers.Where(c =>
-                            c.FirstName?.ToLower().Contains(searchText) == true ||
-                            c.LastName?.ToLower().Contains(searchText) == true ||
-                            c.Phone?.ToLower().Contains(searchText) == true ||
-                            c.Email?.ToLower().Contains(searchText) == true)
-                            .OrderBy(c => c.FirstName).ThenBy(c => c.LastName).ToList();
-                        newList = new ObservableCollection<Customer>(filtered);
-                    }
-                    Customers = newList;
-                    IsCustomerSearchOpen = true;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Müşteri aramada hata oluştu: {ex.Message}");
-                }
+                // Arama metni değiştiğinde servisten arama yap
+                SearchCustomersAsync();
+                
+                // Popup'ı aç
+                IsCustomerSearchOpen = true;
             }
         }
 
