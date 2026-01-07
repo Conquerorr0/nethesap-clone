@@ -142,16 +142,27 @@
                                     </StackPanel>
                                     
                                     <!-- Stock -->
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Stok" 
-                                                 FontSize="12" 
-                                                 Opacity="0.7"
-                                                 HorizontalAlignment="Right"/>
-                                        <TextBlock Text="{Binding StockQuantity}" 
-                                                 FontWeight="Bold" 
-                                                 FontSize="18"
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="Kalan Stok" 
+                                                 FontSize="11" 
+                                                 Opacity="0.6"
                                                  HorizontalAlignment="Right"
-                                                 Foreground="{Binding StockQuantity, Converter={StaticResource StockLevelToColorConverter}}"/>
+                                                 Margin="0,0,0,4"/>
+                                        <Border Background="{Binding StockQuantity, Converter={StaticResource StockLevelToColorConverter}}"
+                                                CornerRadius="12"
+                                                Padding="12,6"
+                                                HorizontalAlignment="Right">
+                                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Run Text="{Binding StockQuantity, Mode=OneWay}" 
+                                                     FontWeight="Bold" 
+                                                     FontSize="16"
+                                                     Foreground="White"/>
+                                                <Run Text=" adet" 
+                                                     FontSize="12"
+                                                     FontWeight="Medium"
+                                                     Foreground="White"/>
+                                            </TextBlock>
+                                        </Border>
                                     </StackPanel>
                                 </Grid>
                                 
