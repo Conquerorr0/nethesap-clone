@@ -727,115 +727,82 @@ namespace Nethesap.UI.ViewModels
 
         private async void SaveSale(object obj)
         {
+            if (IsLoading) return;
             IsLoading = true;
-            
-            System.Diagnostics.Debug.WriteLine("=== SATIŞ KAYDETME İŞLEMİ BAŞLADI ===");
-            Console.WriteLine("=== SATIŞ KAYDETME İŞLEMİ BAŞLADI ===");
             
             try
             {
-                // Basit kontroller
+                // Temel validasyonlar
                 if (CurrentSale == null)
                 {
-                    MessageBox.Show("Satış bilgileri bulunamadı!", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    IsLoading = false;
+                    MessageBox.Show("Satış verisi oluşturulamadı.", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
                 
                 if (SelectedCustomer == null)
                 {
-                    MessageBox.Show("Lütfen bir müşteri seçiniz!", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    IsLoading = false;
+                    MessageBox.Show("Lütfen bir müşteri seçiniz.", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
                 
-                if (CurrentSaleItems?.Count == 0)
+                if (CurrentSaleItems == null || !CurrentSaleItems.Any())
                 {
-                    MessageBox.Show("Lütfen sepete ürün ekleyiniz!", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    IsLoading = false;
+                    MessageBox.Show("Sepette ürün bulunmamaktadır.", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
-                
+
                 Console.WriteLine($"Müşteri: {SelectedCustomer.FirstName} {SelectedCustomer.LastName}");
-                Console.WriteLine($"Toplam ürün sayısı: {CurrentSaleItems.Count}");
-                Console.WriteLine($"Toplam tutar: {CurrentSaleItems.Sum(item => item.TotalPrice):C2}");
-                
-                // CurrentSale'ı hazırla
+                Console.WriteLine($"Toplam ürün: {CurrentSaleItems.Count}, Tutar: {CurrentSaleItems.Sum(i => i.TotalPrice):C2}");
+
+                // Satış nesnesini hazırla
                 CurrentSale.CustomerId = SelectedCustomer.Id;
                 CurrentSale.CreatedDate = DateTime.Now;
                 CurrentSale.PaymentType = PaymentType.Sale;
                 CurrentSale.PaymentMethod = PaymentMethod.Cash;
+                CurrentSale.TotalAmount = CurrentSaleItems.Sum(x => x.TotalPrice);
                 CurrentSale.PaymentItems = new List<PaymentItem>(CurrentSaleItems);
-                CurrentSale.TotalAmount = CurrentSaleItems.Sum(item => item.TotalPrice);
                 
-                // Kullanıcının belirttiği ödenen tutarı doğrula
-                var paidAmount = PaidAmount;
+                // Ödeme miktarını ayarla
+                var paid = PaidAmount;
+                if (paid > CurrentSale.TotalAmount) paid = CurrentSale.TotalAmount;
+                if (paid < 0) paid = 0;
                 
-                // Eğer kullanıcı ödeme alanını boş bırakırsa (0 veya negatif), borca yaz (hiç ödeme yok)
-                if (paidAmount <= 0)
-                {
-                    paidAmount = 0;
-                }
+                CurrentSale.PaidAmount = paid;
+                CurrentSale.RemainingAmount = CurrentSale.TotalAmount - paid;
+                CurrentSale.IsFullyPaid = (CurrentSale.RemainingAmount <= 0);
                 
-                // Toplamdan fazla ödeme yapılmasına izin verme
-                if (paidAmount > CurrentSale.TotalAmount)
-                {
-                    paidAmount = CurrentSale.TotalAmount;
-                }
+                // Servise gönder (Hata durumunda exception fırlatır)
+                Console.WriteLine("Satış servisine gönderiliyor...");
+                await _saleService.AddSaleAsync(CurrentSale);
                 
-                CurrentSale.PaidAmount = paidAmount;
-                CurrentSale.RemainingAmount = CurrentSale.TotalAmount - paidAmount;
-                if (CurrentSale.RemainingAmount < 0)
-                {
-                    CurrentSale.RemainingAmount = 0;
-                }
-                CurrentSale.IsFullyPaid = CurrentSale.RemainingAmount == 0;
+                // Başarılı
+                MessageBox.Show("Satış başarıyla kaydedildi.", "Başarılı", MessageBoxButton.OK, MessageBoxImage.Information);
                 
-                // ViewModel tarafındaki kalan tutarı da güncelle
-                RemainingAmount = CurrentSale.RemainingAmount;
+                // Ekranı temizle ve kapat
+                IsNewSaleDialogOpen = false;
+                CurrentSale = null;
+                CurrentSaleItems.Clear();
+                SelectedCustomer = null;
+                SelectedProduct = null;
+                Quantity = 1;
+                PaidAmount = 0;
+                RemainingAmount = 0;
                 
-                // PaymentItems için ID'leri kontrol et
-                foreach (var item in CurrentSale.PaymentItems)
-                {
-                    if (item.Id == Guid.Empty)
-                        item.Id = Guid.NewGuid();
-                    
-                    Console.WriteLine($"Satış kalemi: {item.Product?.Name ?? "Bilinmeyen"} - Adet: {item.Quantity} - Fiyat: {item.TotalPrice:C2}");
-                }
-                
-                // Satışı kaydet
-                Console.WriteLine("SaleService.AddSaleAsync çağrılıyor...");
-                bool result = await _saleService.AddSaleAsync(CurrentSale);
-                
-                if (result)
-                {
-                    MessageBox.Show("Satış başarıyla kaydedildi!", "Başarılı", MessageBoxButton.OK, MessageBoxImage.Information);
-                    IsNewSaleDialogOpen = false;
-                    await RefreshSalesAsync();
-                    
-                    // Temizle
-                    CurrentSale = null;
-                    CurrentSaleItems?.Clear();
-                    SelectedCustomer = null;
-                    SelectedProduct = null;
-                    Quantity = 1;
-                    PaidAmount = 0;
-                    RemainingAmount = 0;
-                    
-                    Console.WriteLine("Satış kaydetme işlemi tamamlandı ve veriler temizlendi.");
-                }
-                else
-                {
-                    MessageBox.Show("Satış kaydedilemedi! Lütfen tekrar deneyiniz.", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
+                // Listeyi yenile
+                await RefreshSalesAsync();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"SaveSale metodunda hata: {ex.Message}");
-                Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
-                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+                // Hata mesajını ayrıştır ve kullanıcıya göster
+                string message = ex.Message;
+                // Eğer InnerException varsa onu da ekle (veritabanı detayları için)
+                if (ex.InnerException != null)
+                {
+                    message += $"\n\nTeknik Detay: {ex.InnerException.Message}";
+                }
                 
-                MessageBox.Show($"Satış kaydedilemedi!\n\nHata: {ex.Message}\n\nDetay: {ex.InnerException?.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+                Console.WriteLine($"Satış Hatası: {ex}");
+                MessageBox.Show($"Satış kaydedilemedi!\n\nNedeni: {message}", "İşlem Hatası", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {

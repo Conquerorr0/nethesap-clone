@@ -216,215 +216,157 @@ namespace Nethesap.UI.Services
         /// <returns>İşlem başarılı ise true, değilse false</returns>
         public async Task<bool> AddSaleAsync(Payment payment)
         {
+            // Transaction dışı kontroller
             try
             {
-                Console.WriteLine("=== AddSaleAsync BAŞLADI ===");
-                Console.WriteLine($"Payment ID: {payment.Id}");
-                Console.WriteLine($"Customer ID: {payment.CustomerId}");
-                Console.WriteLine($"Total Amount: {payment.TotalAmount:C2}");
-                Console.WriteLine($"Payment Type: {payment.PaymentType}");
-                Console.WriteLine($"Payment Method: {payment.PaymentMethod}");
-                
-                // Satış detaylarını kontrol et
                 if (payment.PaymentItems == null || !payment.PaymentItems.Any())
                 {
-                    Console.WriteLine("HATA: Satış kalemleri boş!");
-                    return false;
+                    throw new InvalidOperationException("Satış kalemleri boş olamaz.");
                 }
-                
-                Console.WriteLine($"PaymentItems sayısı: {payment.PaymentItems.Count}");
-                
+
                 // Veritabanı bağlantısını test et
-                try
-                {
-                    Console.WriteLine("Veritabanı bağlantısı test ediliyor...");
-                    bool canConnect = await _dbContext.Database.CanConnectAsync();
-                    Console.WriteLine($"Veritabanı bağlantısı: {(canConnect ? "BAŞARILI" : "BAŞARISIZ")}");
-                    
-                    if (!canConnect)
-                    {
-                        Console.WriteLine("HATA: Veritabanına bağlanılamıyor!");
-                        return false;
-                    }
-                }
-                catch (Exception dbEx)
-                {
-                    Console.WriteLine($"Veritabanı bağlantı hatası: {dbEx.Message}");
-                    return false;
-                }
-
-                // Her bir ürünü kontrol et ve stok doğrulaması yap 
-                foreach (var item in payment.PaymentItems)
-                {
-                    // ID kontrolü
-                    if (item.Id == Guid.Empty)
-                    {
-                        item.Id = Guid.NewGuid();
-                        Console.WriteLine($"Satış kalemi için yeni ID oluşturuldu: {item.Id}");
-                    }
-                    
-                    // ProductId kontrolü
-                    if (item.ProductId == Guid.Empty)
-                    {
-                        Console.WriteLine("HATA: Ürün ID'si boş!");
-                        return false;
-                    }
-                    
-                    // Ürün kontrolü
-                    var product = await _productRepository.GetByIdAsync(item.ProductId);
-                    if (product == null)
-                    {
-                        Console.WriteLine($"HATA: {item.ProductId} ID'li ürün bulunamadı!");
-                        return false;
-                    }
-                    
-                    // Stok kontrolü
-                    if (product.StockQuantity < item.Quantity)
-                    {
-                        Console.WriteLine($"HATA: Yetersiz stok! Ürün: {product.Name}, Mevcut: {product.StockQuantity}, İstenen: {item.Quantity}");
-                        return false;
-                    }
-                    
-                    // Fiyat bilgilerini güncelle
-                    item.UnitPrice = product.Price;
-                    item.TotalPrice = product.Price * item.Quantity;
-                    
-                    Console.WriteLine($"Satış kalemi: Ürün: {product.Name}, Adet: {item.Quantity}, Birim Fiyat: {item.UnitPrice:C2}, Toplam: {item.TotalPrice:C2}");
-                }
-
-                payment.CreatedDate = DateTime.Now;
-                Console.WriteLine($"Satış tarihi: {payment.CreatedDate}");
-
-                // Transaction kullanarak güvenli kayıt işlemi
-                using var transaction = await _dbContext.Database.BeginTransactionAsync();
-                
-                try
-                {
-                    // Önce veritabanı bağlantısının ChangeTracker'ını temizle
-                    _dbContext.ChangeTracker.Clear();
-                    
-                    // Yeni Payment oluştur (navigation property'ler olmadan)
-                    var newPayment = new Payment
-                    {
-                        Id = payment.Id,
-                        CustomerId = payment.CustomerId,
-                        TotalAmount = payment.TotalAmount,
-                        PaidAmount = payment.PaidAmount,
-                        RemainingAmount = payment.RemainingAmount,
-                        IsFullyPaid = payment.IsFullyPaid,
-                        PaymentMethod = payment.PaymentMethod,
-                        PaymentType = payment.PaymentType,
-                        Description = payment.Description,
-                        CreatedDate = payment.CreatedDate,
-                        DueDate = payment.DueDate
-                    };
-                    
-                    // Payment'i ekle
-                    _dbContext.Payments.Add(newPayment);
-                    Console.WriteLine("Payment eklendi");
-                    
-                    // PaymentItems'ları ekle
-                    foreach (var item in payment.PaymentItems)
-                    {
-                        var newItem = new PaymentItem
-                        {
-                            Id = item.Id,
-                            PaymentId = payment.Id,
-                            ProductId = item.ProductId,
-                            Quantity = item.Quantity,
-                            UnitPrice = item.UnitPrice,
-                            TotalPrice = item.TotalPrice
-                        };
-                        
-                        _dbContext.PaymentItems.Add(newItem); 
-                        Console.WriteLine($"PaymentItem eklendi: {newItem.Id}");
-                    }
-                    
-                    // Stok miktarlarını güncelle
-                    foreach (var item in payment.PaymentItems)
-                    {
-                        var product = await _productRepository.GetByIdAsync(item.ProductId);
-                        if (product != null)
-                        {
-                            product.StockQuantity -= item.Quantity;
-                            _dbContext.Products.Update(product);
-                            Console.WriteLine($"Ürün stoğu güncellendi: {product.Name}, Yeni stok: {product.StockQuantity}");
-                        }
-                    }
-                    
-                    // Stok değişikliklerini veritabanına kaydet
-                    await _dbContext.SaveChangesAsync();
-                    
-                    // Satış işlemi için transaction kaydı oluştur (borç kaydı)
-                    var saleTransaction = new Transaction
-                    {
-                        Id = Guid.NewGuid(),
-                        CustomerId = payment.CustomerId,
-                        PaymentId = payment.Id,
-                        Amount = payment.TotalAmount,
-                        Type = TransactionType.Debt,
-                        Description = payment.Description ?? "Satış işlemi",
-                        TransactionDate = payment.CreatedDate,
-                        TotalDueAmount = payment.TotalAmount,
-                        PaidAmount = payment.PaidAmount
-                    };
-                    await _dbContext.Transactions.AddAsync(saleTransaction);
-
-                    // Anlık ödeme varsa ödeme transaction'ı oluştur (borcu azaltan kayıt)
-                    if (payment.PaidAmount > 0)
-                    {
-                        var paymentTransaction = new Transaction
-                        {
-                            Id = Guid.NewGuid(),
-                            CustomerId = payment.CustomerId,
-                            PaymentId = payment.Id,
-                            Amount = -payment.PaidAmount,
-                            Type = payment.IsFullyPaid ? TransactionType.FullPayment : TransactionType.PartialPayment,
-                            Description = $"Ödeme: {payment.PaidAmount:C2} ({payment.PaymentMethod})",
-                            TransactionDate = payment.CreatedDate,
-                            TotalDueAmount = payment.TotalAmount,
-                            PaidAmount = payment.PaidAmount
-                        };
-                        await _dbContext.Transactions.AddAsync(paymentTransaction);
-                    }
-                    
-                    // Değişiklikleri kaydet
-                    Console.WriteLine("SaveChanges çağrılıyor...");
-                    await _dbContext.SaveChangesAsync();
-
-                    // Müşteri bakiyesini güncelle
-                    var transactionRepository = new TransactionRepository(_dbContext);
-                    var newBalance = await transactionRepository.GetCustomerBalanceAsync(payment.CustomerId);
-                    var customer = await _customerRepository.GetByIdAsync(payment.CustomerId);
-                    if (customer != null)
-                    {
-                        customer.Balance = newBalance;
-                        await _customerRepository.UpdateAsync(customer);
-                    }
-                    Console.WriteLine("SaveChanges başarılı!");
-                    
-                    // Transaction'ı onayla
-                    await transaction.CommitAsync();
-                    Console.WriteLine("Transaction commit edildi - Satış başarıyla kaydedildi!");
-                    
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    // Hata durumunda transaction'ı geri al
-                    await transaction.RollbackAsync();
-                    Console.WriteLine($"Transaction rollback edildi. Hata: {ex.Message}");
-                    Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
-                    Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-                    throw;
-                }
+                // Not: Burada _dbContext yerine yeni oluşturacağımız context'i kullanacağız ama
+                // hızlı kontrol için statik bir yöntem veya _dbContext kullanılabilir.
+                // Ancak isolation prensibi gereği aşağıda yeni context oluşturuyoruz.
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Satış ekleme hatası: {ex.Message}");
-                Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
-                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-                return false;
+                Console.WriteLine($"Ön kontroller sırasında hata: {ex.Message}");
+                throw; 
+            }
+
+            // Yeni bir context oluşturarak işlem yapıyoruz (Isolation)
+            using var context = new AppDbContext();
+            
+            if (!await context.Database.CanConnectAsync())
+            {
+                throw new InvalidOperationException("Veritabanına bağlanılamıyor.");
+            }
+
+            // Transaction başlat
+            using var transaction = await context.Database.BeginTransactionAsync();
+
+            try
+            {
+                var now = DateTime.Now;
+
+                // Yeni Payment oluştur
+                var newPayment = new Payment
+                {
+                    Id = payment.Id != Guid.Empty ? payment.Id : Guid.NewGuid(),
+                    CustomerId = payment.CustomerId,
+                    TotalAmount = payment.TotalAmount,
+                    PaidAmount = payment.PaidAmount,
+                    RemainingAmount = payment.RemainingAmount,
+                    IsFullyPaid = payment.IsFullyPaid,
+                    PaymentMethod = payment.PaymentMethod,
+                    PaymentType = payment.PaymentType,
+                    Description = payment.Description,
+                    CreatedDate = now,
+                    DueDate = payment.DueDate,
+                    PaymentItems = new List<PaymentItem>() 
+                };
+
+                // Stok düşümü ve Item hazırlığı
+                foreach (var item in payment.PaymentItems)
+                {
+                    if (item.ProductId == Guid.Empty)
+                        throw new InvalidOperationException("Ürün bulunamadı (ID boş).");
+
+                    // Ürünü bu context içinde bul
+                    var product = await context.Products.FindAsync(item.ProductId);
+                    
+                    if (product == null)
+                        throw new InvalidOperationException($"Ürün bulunamadı (ID: {item.ProductId}).");
+
+                    // Stok kontrolü
+                    if (product.StockQuantity < item.Quantity)
+                    {
+                        throw new InvalidOperationException($"'{product.Name}' stoğu yetersiz! (Stok: {product.StockQuantity}, İstenen: {item.Quantity})");
+                    }
+
+                    // Stoğu güncelle
+                    product.StockQuantity -= item.Quantity;
+                    context.Entry(product).State = EntityState.Modified;
+
+                    // PaymentItem oluştur
+                    var newItem = new PaymentItem
+                    {
+                        Id = item.Id != Guid.Empty ? item.Id : Guid.NewGuid(),
+                        PaymentId = newPayment.Id,
+                        ProductId = item.ProductId,
+                        Quantity = item.Quantity,
+                        UnitPrice = product.Price,
+                        TotalPrice = product.Price * item.Quantity
+                    };
+                    
+                    newPayment.PaymentItems.Add(newItem);
+                }
+
+                // Payment'ı ekle
+                context.Payments.Add(newPayment);
+
+                // Borç kaydı (Transaction)
+                var saleTransaction = new Transaction
+                {
+                    Id = Guid.NewGuid(),
+                    CustomerId = payment.CustomerId,
+                    PaymentId = newPayment.Id,
+                    Amount = newPayment.TotalAmount,
+                    Type = TransactionType.Debt,
+                    Description = payment.Description ?? "Satış işlemi",
+                    TransactionDate = now,
+                    TotalDueAmount = newPayment.TotalAmount,
+                    PaidAmount = newPayment.PaidAmount
+                };
+                await context.Transactions.AddAsync(saleTransaction);
+
+                // Ödeme kaydı (Transaction)
+                if (payment.PaidAmount > 0)
+                {
+                    var paymentTransaction = new Transaction
+                    {
+                        Id = Guid.NewGuid(),
+                        CustomerId = payment.CustomerId,
+                        PaymentId = newPayment.Id,
+                        Amount = -payment.PaidAmount,
+                        Type = payment.IsFullyPaid ? TransactionType.FullPayment : TransactionType.PartialPayment,
+                        Description = $"Ödeme: {payment.PaidAmount:C2} ({payment.PaymentMethod})",
+                        TransactionDate = now,
+                        TotalDueAmount = newPayment.TotalAmount,
+                        PaidAmount = payment.PaidAmount
+                    };
+                    await context.Transactions.AddAsync(paymentTransaction);
+                }
+
+                // Kaydet
+                await context.SaveChangesAsync();
+
+                // Müşteri bakiyesini güncelle
+                var customerTransactions = await context.Transactions
+                    .Where(t => t.CustomerId == payment.CustomerId)
+                    .ToListAsync();
+
+                decimal totalBalance = customerTransactions.Sum(t => t.Amount);
+                
+                var customer = await context.Customers.FindAsync(payment.CustomerId);
+                if (customer != null)
+                {
+                    customer.Balance = totalBalance;
+                    context.Entry(customer).State = EntityState.Modified;
+                    await context.SaveChangesAsync();
+                }
+
+                // Hepsini onayla
+                await transaction.CommitAsync();
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                Console.WriteLine($"Satış hatası: {ex.Message}");
+                throw; 
             }
         }
 
