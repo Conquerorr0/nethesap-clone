@@ -45,7 +45,7 @@
                  <TextBlock Text="Güncel Bakiye: " 
                           Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
                           VerticalAlignment="Center"/>
-                 <TextBlock Text="{Binding CurrentBalance, StringFormat={}{0:C2}}" 
+                 <TextBlock Text="{Binding CurrentBalance, StringFormat='{}{0:N2} TL'}" 
                           Style="{StaticResource MaterialDesignHeadline6TextBlock}"
                           Foreground="{Binding CurrentBalance, Converter={StaticResource BalanceToColorConverter}}"
                           FontWeight="Bold"

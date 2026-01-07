@@ -25,7 +25,9 @@ public partial class App : System.Windows.Application
     {
         // Türk Lirası kültür ayarlarını yap
         var culture = new CultureInfo("tr-TR");
-        culture.NumberFormat.CurrencySymbol = "₺";
+        culture.NumberFormat.CurrencySymbol = "TL";
+        culture.NumberFormat.CurrencyPositivePattern = 3; // n TL formatı
+        culture.NumberFormat.CurrencyNegativePattern = 8; // -n TL formatı
         Thread.CurrentThread.CurrentCulture = culture;
         Thread.CurrentThread.CurrentUICulture = culture;
         CultureInfo.DefaultThreadCurrentCulture = culture;

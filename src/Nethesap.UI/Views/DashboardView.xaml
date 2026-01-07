@@ -48,7 +48,7 @@
                         <TextBlock Text="Toplam Satışlar" 
                                  Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
                                  Foreground="#2E7D32"/>
-                        <TextBlock Text="{Binding TotalBalance, StringFormat={}{0:C2}}" 
+                        <TextBlock Text="{Binding TotalBalance, StringFormat='{}{0:N2} TL'}" 
                                  FontSize="24" 
                                  FontWeight="Bold"
                                  Foreground="#1B5E20"/>
@@ -65,7 +65,7 @@
                         <TextBlock Text="Toplam Ödenen" 
                                  Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
                                  Foreground="#1976D2"/>
-                        <TextBlock Text="{Binding TotalReceivables, StringFormat={}{0:C2}}"
+                        <TextBlock Text="{Binding TotalReceivables, StringFormat='{}{0:N2} TL'}"
                                  FontSize="24" 
                                  FontWeight="Bold"
                                  Foreground="#0D47A1"/>
@@ -82,7 +82,7 @@
                         <TextBlock Text="Toplam Borç" 
                                  Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
                                  Foreground="#D84315"/>
-                        <TextBlock Text="{Binding TotalPayables, StringFormat={}{0:C2}}"
+                        <TextBlock Text="{Binding TotalPayables, StringFormat='{}{0:N2} TL'}"
                                  FontSize="24" 
                                  FontWeight="Bold"
                                  Foreground="#BF360C"/>
@@ -170,7 +170,7 @@
                                         </StackPanel>
 
                                         <TextBlock Grid.Column="2"
-                                                 Text="{Binding Amount, StringFormat={}{0:C2}}"
+                                                 Text="{Binding Amount, StringFormat='{}{0:N2} ?'}"
                                                  Style="{StaticResource MaterialDesignBody1TextBlock}"
                                                  FontWeight="Medium"
                                                  Foreground="{Binding IsIncome, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#2E7D32,#D84315'}"

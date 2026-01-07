@@ -103,7 +103,7 @@
                                              HorizontalAlignment="Center" 
                                              FontSize="12" 
                                              Opacity="0.7"/>
-                                    <TextBlock Text="{Binding Balance, StringFormat={}{0:C2}}" 
+                                    <TextBlock Text="{Binding Balance, StringFormat='{}{0:N2} TL'}" 
                                              FontWeight="Bold" 
                                              FontSize="18"
                                              HorizontalAlignment="Center"

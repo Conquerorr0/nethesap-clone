@@ -173,13 +173,13 @@
                         </DataGridTextColumn.Binding>
                     </DataGridTextColumn>
                     <DataGridTextColumn Header="Tutar" 
-                                      Binding="{Binding TotalAmount, StringFormat={}{0:C2}}"
+                                      Binding="{Binding TotalAmount, StringFormat='{}{0:N2} TL'}"
                                       Width="*"/>
                     <DataGridTextColumn Header="Ödenen" 
-                                      Binding="{Binding PaidAmount, StringFormat={}{0:C2}}"
+                                      Binding="{Binding PaidAmount, StringFormat='{}{0:N2} TL'}"
                                       Width="*"/>
                     <DataGridTextColumn Header="Kalan" 
-                                      Binding="{Binding RemainingAmount, StringFormat={}{0:C2}}"
+                                      Binding="{Binding RemainingAmount, StringFormat='{}{0:N2} TL'}"
                                       Width="*"/>
                     <DataGridTemplateColumn Width="Auto">
                         <DataGridTemplateColumn.CellTemplate>
@@ -433,7 +433,7 @@
                                                 </StackPanel>
                                                  
                                                 <TextBlock Grid.Row="0" Grid.Column="1" Grid.RowSpan="3"
-                                                          Text="{Binding Price, StringFormat={}{0:C2}}"
+                                                          Text="{Binding Price, StringFormat='{}{0:N2} TL'}"
                                                            VerticalAlignment="Center"
                                                            FontWeight="Medium"
                                                            Margin="16 0 0 0"/>
@@ -467,8 +467,8 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Ürün" Binding="{Binding Product.Name}" Width="*"/>
                             <DataGridTextColumn Header="Miktar" Binding="{Binding Quantity}" Width="Auto"/>
-                            <DataGridTextColumn Header="Birim Fiyat" Binding="{Binding UnitPrice, StringFormat={}{0:C2}}" Width="Auto"/>
-                            <DataGridTextColumn Header="Toplam" Binding="{Binding TotalPrice, StringFormat={}{0:C2}}" Width="Auto"/>
+                            <DataGridTextColumn Header="Birim Fiyat" Binding="{Binding UnitPrice, StringFormat='{}{0:N2} TL'}" Width="Auto"/>
+                            <DataGridTextColumn Header="Toplam" Binding="{Binding TotalPrice, StringFormat='{}{0:N2} TL'}" Width="Auto"/>
                             <DataGridTemplateColumn Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -570,7 +570,7 @@
                     <TextBlock Grid.Row="2"
                              Margin="0 0 0 16">
                         <Run Text="İade Tutarı: "/>
-                        <Run Text="{Binding SelectedSale.TotalAmount, StringFormat={}{0:C2}}" FontWeight="Bold"/>
+                        <Run Text="{Binding SelectedSale.TotalAmount, StringFormat='{}{0:N2} TL'}" FontWeight="Bold"/>
                     </TextBlock>
                     
                     <StackPanel Grid.Row="3"
@@ -680,7 +680,7 @@
                                  FontWeight="Bold"
                                  Margin="0 0 8 8"/>
                         <TextBlock Grid.Row="2" Grid.Column="1" 
-                                 Text="{Binding SelectedSale.TotalAmount, StringFormat={}{0:C2}}" 
+                                 Text="{Binding SelectedSale.TotalAmount, StringFormat='{}{0:N2} TL'}" 
                                  Margin="0 0 16 8"/>
                     </Grid>
                     
@@ -698,10 +698,10 @@
                                               Binding="{Binding Quantity}"
                                               Width="Auto"/>
                             <DataGridTextColumn Header="Birim Fiyat" 
-                                              Binding="{Binding UnitPrice, StringFormat={}{0:C2}}"
+                                              Binding="{Binding UnitPrice, StringFormat='{}{0:N2} TL'}"
                                               Width="Auto"/>
                             <DataGridTextColumn Header="Toplam" 
-                                              Binding="{Binding TotalPrice, StringFormat={}{0:C2}}"
+                                              Binding="{Binding TotalPrice, StringFormat='{}{0:N2} TL'}"
                                               Width="Auto"/>
                         </DataGrid.Columns>
                     </DataGrid>
@@ -765,7 +765,7 @@
                             <TextBlock Text="Toplam Tutar" 
                                      FontSize="12" 
                                      Opacity="0.7"/>
-                            <TextBlock Text="{Binding SelectedSale.TotalAmount, StringFormat={}{0:C2}}" 
+                            <TextBlock Text="{Binding SelectedSale.TotalAmount, StringFormat='{}{0:N2} TL'}" 
                                      FontWeight="Bold" 
                                      FontSize="16"/>
                         </StackPanel>
@@ -775,7 +775,7 @@
                             <TextBlock Text="Kalan Tutar" 
                                      FontSize="12" 
                                      Opacity="0.7"/>
-                            <TextBlock Text="{Binding SelectedSale.RemainingAmount, StringFormat={}{0:C2}}" 
+                            <TextBlock Text="{Binding SelectedSale.RemainingAmount, StringFormat='{}{0:N2} TL'}" 
                                      FontWeight="Bold" 
                                      FontSize="16"
                                      Foreground="Red"/>
@@ -852,7 +852,7 @@
                             <TextBlock Text="Fiyat" 
                                      FontSize="12" 
                                      Opacity="0.7"/>
-                            <TextBlock Text="{Binding SelectedHistoryProduct.Price, StringFormat={}{0:C2}}" 
+                            <TextBlock Text="{Binding SelectedHistoryProduct.Price, StringFormat='{}{0:N2} TL'}" 
                                      FontWeight="Bold" 
                                      FontSize="14"/>
                         </StackPanel>
@@ -891,10 +891,10 @@
                                               Binding="{Binding PaymentItems[0].Quantity}"
                                               Width="*"/>
                             <DataGridTextColumn Header="Birim Fiyat" 
-                                              Binding="{Binding PaymentItems[0].UnitPrice, StringFormat={}{0:C2}}"
+                                              Binding="{Binding PaymentItems[0].UnitPrice, StringFormat='{}{0:N2} TL'}"
                                               Width="*"/>
                             <DataGridTextColumn Header="Toplam" 
-                                              Binding="{Binding PaymentItems[0].TotalPrice, StringFormat={}{0:C2}}"
+                                              Binding="{Binding PaymentItems[0].TotalPrice, StringFormat='{}{0:N2} TL'}"
                                               Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
@@ -961,7 +961,7 @@
                             <TextBlock Text="Toplam Tutar" 
                                      FontSize="12" 
                                      Opacity="0.7"/>
-                            <TextBlock Text="{Binding SelectedSale.TotalAmount, StringFormat={}{0:C2}}" 
+                            <TextBlock Text="{Binding SelectedSale.TotalAmount, StringFormat='{}{0:N2} TL'}" 
                                      FontWeight="Bold" 
                                      FontSize="14"/>
                         </StackPanel>
@@ -971,7 +971,7 @@
                             <TextBlock Text="Ödenen Tutar" 
                                      FontSize="12" 
                                      Opacity="0.7"/>
-                            <TextBlock Text="{Binding SelectedSale.PaidAmount, StringFormat={}{0:C2}}" 
+                            <TextBlock Text="{Binding SelectedSale.PaidAmount, StringFormat='{}{0:N2} TL'}" 
                                      FontWeight="Bold" 
                                      FontSize="14"/>
                         </StackPanel>
@@ -981,7 +981,7 @@
                             <TextBlock Text="Kalan Tutar" 
                                      FontSize="12" 
                                      Opacity="0.7"/>
-                            <TextBlock Text="{Binding SelectedSale.RemainingAmount, StringFormat={}{0:C2}}" 
+                            <TextBlock Text="{Binding SelectedSale.RemainingAmount, StringFormat='{}{0:N2} TL'}" 
                                      FontWeight="Bold" 
                                      FontSize="14"
                                      Foreground="Red"/>
@@ -1002,7 +1002,7 @@
                                               Binding="{Binding Type}"
                                               Width="*"/>
                             <DataGridTextColumn Header="Tutar" 
-                                              Binding="{Binding Amount, StringFormat={}{0:C2}}"
+                                              Binding="{Binding Amount, StringFormat='{}{0:N2} TL'}"
                                               Width="*"/>
                             <DataGridTextColumn Header="Açıklama" 
                                               Binding="{Binding Description}"
