@@ -111,7 +111,10 @@
                             <lvc:Axis Title="Tarih" Labels="{Binding ChartLabels}"/>
                         </lvc:CartesianChart.AxisX>
                         <lvc:CartesianChart.AxisY>
-                            <lvc:Axis Title="Tutar (₺)" LabelFormatter="{Binding ChartFormatter}"/>
+                            <lvc:Axis Title="Tutar (₺)" 
+                                     LabelFormatter="{Binding ChartFormatter}"
+                                     MinValue="0"
+                                     MaxValue="{Binding ChartMaxValue}"/>
                         </lvc:CartesianChart.AxisY>
                     </lvc:CartesianChart>
                 </Grid>
