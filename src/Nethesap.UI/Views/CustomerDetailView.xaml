@@ -90,16 +90,26 @@
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header="Tarih" DisplayMemberBinding="{Binding TransactionDate, StringFormat=dd.MM.yyyy HH:mm}" Width="150"/>
-                        <GridViewColumn Header="Açıklama" DisplayMemberBinding="{Binding Description}" Width="300"/>
+                        <GridViewColumn Header="Açıklama" DisplayMemberBinding="{Binding Description}" Width="250"/>
                         <GridViewColumn Header="Tutar" DisplayMemberBinding="{Binding Amount, StringFormat=C2}" Width="120"/>
-                        <GridViewColumn Header="İşlem Tipi" DisplayMemberBinding="{Binding TransactionType}" Width="100"/>
-                        <GridViewColumn Header="İşlem">
+                        <GridViewColumn Header="İşlem Tipi" DisplayMemberBinding="{Binding Type}" Width="100"/>
+                        <GridViewColumn Header="Detaylar" Width="120">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <Button Command="{Binding DataContext.ViewSaleDetailsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding}"
-                                            Style="{StaticResource MaterialDesignFlatButton}"
-                                            Content="Detay"/>
+                                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                                            Height="32"
+                                            Padding="16,4">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="InformationOutline" 
+                                                                   Width="16" 
+                                                                   Height="16" 
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="0,0,4,0"/>
+                                            <TextBlock Text="Detaylar" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
@@ -113,9 +123,11 @@
                                  IsOpen="{Binding IsSaleDetailsDialogOpen}"
                                  CloseOnClickAway="True">
             <materialDesign:DialogHost.DialogContent>
-                <Grid Width="500" Margin="16">
+                <Grid Width="600" Margin="16">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
@@ -124,18 +136,92 @@
                              Style="{StaticResource MaterialDesignHeadline6TextBlock}"
                              Margin="0 0 0 16"/>
 
-                    <!-- Details Content placeholder -->
-                    <StackPanel Grid.Row="1">
-                        <TextBlock Text="{Binding SelectedSale.Note}" TextWrapping="Wrap"/>
-                        <!-- Add more details as needed -->
+                    <!-- Sale Summary -->
+                    <materialDesign:Card Grid.Row="1" Padding="16" Margin="0 0 0 16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Tarih:" FontWeight="Bold" Margin="0 0 0 8"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedSale.CreatedDate, StringFormat=dd.MM.yyyy HH:mm}" Margin="0 0 0 8"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Toplam Tutar:" FontWeight="Bold" Margin="0 0 0 8"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedSale.TotalAmount, StringFormat=C2}" Margin="0 0 0 8"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Ödenen:" FontWeight="Bold" Margin="0 0 0 8"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedSale.PaidAmount, StringFormat=C2}" Margin="0 0 0 8"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Kalan:" FontWeight="Bold"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedSale.RemainingAmount, StringFormat=C2}" Foreground="Red"/>
+                        </Grid>
+                    </materialDesign:Card>
+
+                    <!-- Products List -->
+                    <materialDesign:Card Grid.Row="2" Margin="0 0 0 16">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="300">
+                            <ItemsControl ItemsSource="{Binding SelectedSale.PaymentItems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{DynamicResource MaterialDesignDivider}" 
+                                              BorderThickness="0 0 0 1" 
+                                              Padding="16 8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBlock Grid.Column="0" 
+                                                         Text="{Binding Product.Name}" 
+                                                         VerticalAlignment="Center"
+                                                         FontWeight="Medium"/>
+                                                
+                                                <TextBlock Grid.Column="1" 
+                                                         Text="{Binding Quantity, StringFormat='x{0}'}" 
+                                                         VerticalAlignment="Center"
+                                                         Margin="16 0"
+                                                         Opacity="0.7"/>
+                                                
+                                                <TextBlock Grid.Column="2" 
+                                                         Text="{Binding UnitPrice, StringFormat=C2}" 
+                                                         VerticalAlignment="Center"
+                                                         Margin="16 0"
+                                                         Opacity="0.7"/>
+                                                
+                                                <TextBlock Grid.Column="3" 
+                                                         Text="{Binding TotalPrice, StringFormat=C2}" 
+                                                         VerticalAlignment="Center"
+                                                         FontWeight="Bold"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </materialDesign:Card>
+
+                    <!-- Payment Info -->
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0 0 0 16">
+                        <materialDesign:PackIcon Kind="CreditCard" VerticalAlignment="Center" Margin="0 0 8 0"/>
+                        <TextBlock Text="Ödeme Yöntemi: " VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding SelectedSale.PaymentMethod}" FontWeight="Bold" VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <Button Grid.Row="2" 
+                    <Button Grid.Row="4" 
                             Command="{Binding CloseSaleDetailsCommand}"
-                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Style="{StaticResource MaterialDesignRaisedButton}"
                             Content="Kapat"
-                            HorizontalAlignment="Right"
-                            Margin="0 16 0 0"/>
+                            HorizontalAlignment="Right"/>
                 </Grid>
             </materialDesign:DialogHost.DialogContent>
         </materialDesign:DialogHost>
