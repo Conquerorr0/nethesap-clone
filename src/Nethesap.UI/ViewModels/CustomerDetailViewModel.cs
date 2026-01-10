@@ -16,16 +16,44 @@ namespace Nethesap.UI.ViewModels
     public class CustomerDetailViewModel : INotifyPropertyChanged
     {
         private Customer _customer;
-        private ObservableCollection<Transaction> _filteredTransactions;
+        private ObservableCollection<Payment> _filteredSales; // Changed from Transactions to Sales (Payments)
         private string _searchText;
         private DateTime? _startDate;
         private DateTime? _endDate;
         private ICommand _backCommand;
+        
+        // Commands matching SalesViewModel
         private ICommand _viewSaleDetailsCommand;
         private ICommand _closeSaleDetailsCommand;
+        private ICommand _openPartialPaymentDialogCommand;
+        private ICommand _makePartialPaymentCommand;
+        private ICommand _cancelPartialPaymentCommand;
+        private ICommand _viewPaymentHistoryCommand;
+        private ICommand _closePaymentHistoryCommand;
+        private ICommand _refundSaleCommand;
+        private ICommand _processRefundCommand;
+        private ICommand _cancelRefundCommand;
+
         private decimal _currentBalance;
+        
+        // Selection and Dialog properties
         private Payment _selectedSale;
         private bool _isSaleDetailsDialogOpen;
+        private bool _isPartialPaymentDialogOpen;
+        private bool _isPaymentHistoryDialogOpen;
+        private bool _isRefundDialogOpen;
+        
+        // Helper properties for dialogs
+        private decimal _paidAmount;
+        private decimal _remainingAmount;
+        private PaymentMethod _selectedPaymentMethod = PaymentMethod.Cash;
+        private ObservableCollection<PaymentMethod> _paymentMethods = new ObservableCollection<PaymentMethod> 
+        { 
+            PaymentMethod.Cash, 
+            PaymentMethod.CreditCard, 
+            PaymentMethod.BankTransfer 
+        };
+
         private SaleService _saleService;
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -38,7 +66,7 @@ namespace Nethesap.UI.ViewModels
             {
                 _customer = value;
                 OnPropertyChanged();
-                FilterTransactions();
+                FilterSales();
             }
         }
 
@@ -55,12 +83,12 @@ namespace Nethesap.UI.ViewModels
             }
         }
 
-        public ObservableCollection<Transaction> FilteredTransactions
+        public ObservableCollection<Payment> FilteredSales
         {
-            get => _filteredTransactions;
+            get => _filteredSales;
             set
             {
-                _filteredTransactions = value;
+                _filteredSales = value;
                 OnPropertyChanged();
             }
         }
@@ -72,7 +100,7 @@ namespace Nethesap.UI.ViewModels
             {
                 _searchText = value;
                 OnPropertyChanged();
-                FilterTransactions();
+                FilterSales();
             }
         }
 
@@ -83,7 +111,7 @@ namespace Nethesap.UI.ViewModels
             {
                 _startDate = value;
                 OnPropertyChanged();
-                FilterTransactions();
+                FilterSales();
             }
         }
 
@@ -94,7 +122,7 @@ namespace Nethesap.UI.ViewModels
             {
                 _endDate = value;
                 OnPropertyChanged();
-                FilterTransactions();
+                FilterSales();
             }
         }
 
@@ -118,10 +146,88 @@ namespace Nethesap.UI.ViewModels
             }
         }
 
+        public bool IsPartialPaymentDialogOpen
+        {
+            get => _isPartialPaymentDialogOpen;
+            set
+            {
+                _isPartialPaymentDialogOpen = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IsPaymentHistoryDialogOpen
+        {
+            get => _isPaymentHistoryDialogOpen;
+            set
+            {
+                _isPaymentHistoryDialogOpen = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IsRefundDialogOpen
+        {
+            get => _isRefundDialogOpen;
+            set
+            {
+                _isRefundDialogOpen = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public decimal PaidAmount
+        {
+            get => _paidAmount;
+            set
+            {
+                if (_paidAmount != value)
+                {
+                    _paidAmount = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public decimal RemainingAmount
+        {
+            get => _remainingAmount;
+            set
+            {
+                _remainingAmount = value;
+                OnPropertyChanged();
+            }
+        }
+        
+        public PaymentMethod SelectedPaymentMethod
+        {
+            get => _selectedPaymentMethod;
+            set
+            {
+                _selectedPaymentMethod = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public ObservableCollection<PaymentMethod> PaymentMethods => _paymentMethods;
+
+
         // Commands
         public ICommand BackCommand => _backCommand ??= new RelayCommand(GoBack);
-        public ICommand ViewSaleDetailsCommand => _viewSaleDetailsCommand ??= new RelayCommand<Transaction>(ViewSaleDetails);
+        public ICommand ViewSaleDetailsCommand => _viewSaleDetailsCommand ??= new RelayCommand<Payment>(ViewSaleDetails);
         public ICommand CloseSaleDetailsCommand => _closeSaleDetailsCommand ??= new RelayCommand(CloseSaleDetails);
+        
+        public ICommand OpenPartialPaymentDialogCommand => _openPartialPaymentDialogCommand ??= new RelayCommand<Payment>(OpenPartialPaymentDialog);
+        public ICommand MakePartialPaymentCommand => _makePartialPaymentCommand ??= new RelayCommand(MakePartialPayment);
+        public ICommand CancelPartialPaymentCommand => _cancelPartialPaymentCommand ??= new RelayCommand(CancelPartialPayment);
+        
+        public ICommand ViewPaymentHistoryCommand => _viewPaymentHistoryCommand ??= new RelayCommand<Payment>(ViewPaymentHistory);
+        public ICommand ClosePaymentHistoryCommand => _closePaymentHistoryCommand ??= new RelayCommand(ClosePaymentHistory);
+        
+        public ICommand RefundSaleCommand => _refundSaleCommand ??= new RelayCommand<Payment>(OpenRefundDialog);
+        public ICommand ProcessRefundCommand => _processRefundCommand ??= new RelayCommand(ProcessRefund);
+        public ICommand CancelRefundCommand => _cancelRefundCommand ??= new RelayCommand(CancelRefund);
+
 
         // Constructor
         public CustomerDetailViewModel(Customer customer)
@@ -130,60 +236,58 @@ namespace Nethesap.UI.ViewModels
             Customer = customer;
             
             // Tüm işlemleri göstermek için tarih filtresini başlangıçta null yap
-            // Kullanıcı isterse tarih aralığı seçebilir
             EndDate = null;
             StartDate = null;
             
-            FilterTransactions();
+            FilterSales();
         }
 
         // Methods
-        private void FilterTransactions()
+        private void FilterSales()
         {
             if (Customer == null)
             {
-                FilteredTransactions = new ObservableCollection<Transaction>();
-
-                // Hiç işlem yoksa bakiye 0 kabul et
+                FilteredSales = new ObservableCollection<Payment>();
                 CurrentBalance = 0;
                 return;
             }
 
-            IEnumerable<Transaction> filteredList = Customer.Transactions ?? Enumerable.Empty<Transaction>();
+            // Müşterinin Ödemelerini (Satışlarını) alıyoruz
+            IEnumerable<Payment> filteredList = Customer.Payments ?? Enumerable.Empty<Payment>();
 
             // Filter by date range
             if (StartDate.HasValue)
             {
                 DateTime start = StartDate.Value.Date;
-                filteredList = filteredList.Where(t => t.TransactionDate.Date >= start);
+                filteredList = filteredList.Where(p => p.CreatedDate.Date >= start);
             }
 
             if (EndDate.HasValue)
             {
                 DateTime end = EndDate.Value.Date.AddDays(1).AddSeconds(-1);
-                filteredList = filteredList.Where(t => t.TransactionDate <= end);
+                filteredList = filteredList.Where(p => p.CreatedDate <= end);
             }
 
-            // Filter by search text
+            // Filter by search text (TotalAmount or potentially description if needed)
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
-                filteredList = filteredList.Where(t => 
-                    t.Description?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) == true ||
-                    t.Amount.ToString().Contains(SearchText)
+                var lowerSearch = SearchText.ToLower();
+                filteredList = filteredList.Where(p => 
+                    p.TotalAmount.ToString().Contains(SearchText) ||
+                    (p.Description != null && p.Description.ToLower().Contains(lowerSearch))
                 );
             }
 
             // Order by date (newest first)
-            filteredList = filteredList.OrderByDescending(t => t.TransactionDate);
+            filteredList = filteredList.OrderByDescending(p => p.CreatedDate);
 
-            FilteredTransactions = new ObservableCollection<Transaction>(filteredList);
+            FilteredSales = new ObservableCollection<Payment>(filteredList);
 
             // Genel bakiye: ilgili müşterinin tüm satışlarındaki kalan borç toplamı
             try
             {
                 if (Customer.Payments != null && Customer.Payments.Any())
                 {
-                    // Her satışın RemainingAmount alanını toplayarak güncel borcu hesapla
                     CurrentBalance = Customer.Payments.Sum(p => p.RemainingAmount);
                 }
                 else
@@ -193,14 +297,12 @@ namespace Nethesap.UI.ViewModels
             }
             catch
             {
-                // Her ihtimale karşı hata durumunda Customer.Balance'a geri düş
                 CurrentBalance = Customer?.Balance ?? 0;
             }
         }
 
         private void GoBack(object obj)
         {
-            // Navigate back to customers view
             var mainViewModel = System.Windows.Application.Current.MainWindow.DataContext as MainViewModel;
             if (mainViewModel != null)
             {
@@ -208,14 +310,13 @@ namespace Nethesap.UI.ViewModels
             }
         }
 
-        private async void ViewSaleDetails(Transaction transaction)
+        private async void ViewSaleDetails(Payment sale)
         {
-            if (transaction == null || !transaction.PaymentId.HasValue) return;
+            if (sale == null) return;
 
             try
             {
-                // Satış detaylarını getir
-                SelectedSale = await _saleService.GetSaleDetailsAsync(transaction.PaymentId.Value);
+                SelectedSale = await _saleService.GetSaleDetailsAsync(sale.Id);
                 
                 if (SelectedSale != null)
                 {
@@ -238,9 +339,197 @@ namespace Nethesap.UI.ViewModels
             SelectedSale = null;
         }
 
+        // --- PAYMENT DIALOG LOGIC ---
+
+        private void OpenPartialPaymentDialog(Payment sale)
+        {
+            if (sale == null) return;
+            
+            SelectedSale = sale;
+            PaidAmount = 0; // Reset input
+            SelectedPaymentMethod = PaymentMethod.Cash;
+            IsPartialPaymentDialogOpen = true;
+        }
+
+        private async void MakePartialPayment(object obj)
+        {
+             try
+            {
+                if (SelectedSale == null) return;
+                
+                if (PaidAmount <= 0)
+                {
+                    MessageBox.Show("Lütfen geçerli bir tutar giriniz.", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                
+                if (PaidAmount > SelectedSale.RemainingAmount)
+                {
+                    MessageBox.Show($"Ödeme tutarı kalan tutardan ({SelectedSale.RemainingAmount:C2}) fazla olamaz.", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                bool result = await _saleService.AddPartialPaymentAsync(SelectedSale.Id, PaidAmount, SelectedPaymentMethod);
+                
+                if (result)
+                {
+                    MessageBox.Show("Ödeme başarıyla alındı.", "Başarılı", MessageBoxButton.OK, MessageBoxImage.Information);
+                    IsPartialPaymentDialogOpen = false;
+                    
+                    // Verileri güncelle
+                    await RefreshCustomerData();
+                }
+                else
+                {
+                    MessageBox.Show("Ödeme işlemi başarısız oldu.", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                 MessageBox.Show($"Ödeme işlemi sırasında hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void CancelPartialPayment(object obj)
+        {
+            IsPartialPaymentDialogOpen = false;
+            SelectedSale = null;
+            PaidAmount = 0;
+        }
+
+        // --- PAYMENT HISTORY LOGIC ---
+
+        private async void ViewPaymentHistory(Payment sale)
+        {
+             if (sale == null) return;
+            
+            try
+            {
+                // Load details to get transactions
+                var detailedSale = await _saleService.GetSaleDetailsAsync(sale.Id);
+                if (detailedSale != null)
+                {
+                    SelectedSale = detailedSale;
+                    IsPaymentHistoryDialogOpen = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ödeme geçmişi yüklenirken hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void ClosePaymentHistory(object obj)
+        {
+            IsPaymentHistoryDialogOpen = false;
+            SelectedSale = null;
+        }
+
+        // --- REFUND LOGIC ---
+
+        private void OpenRefundDialog(Payment sale)
+        {
+             if (sale == null) return;
+             
+             SelectedSale = sale;
+             IsRefundDialogOpen = true;
+        }
+
+        private async void ProcessRefund(object obj)
+        {
+            try
+            {
+                if (SelectedSale == null) return;
+
+                // Tam iade mantığını çağıralım (SalesViewModel'deki gibi)
+                // Not: Şimdilik basitçe tüm satışı iade ediyoruz.
+                // Partial refund için daha karmaşık bir yapı gerekir (seçili ürünler vs.)
+                // Burada "Tam İade" yapacağız.
+                
+                bool result = await _saleService.RefundSaleAsync(SelectedSale.Id, SelectedSale.PaymentItems);
+                
+                if (result)
+                {
+                     MessageBox.Show("İade işlemi başarıyla tamamlandı.", "Başarılı", MessageBoxButton.OK, MessageBoxImage.Information);
+                     IsRefundDialogOpen = false;
+                     await RefreshCustomerData();
+                }
+                else
+                {
+                    MessageBox.Show("İade işlemi başarısız oldu.", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"İade işlemi sırasında hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void CancelRefund(object obj)
+        {
+            IsRefundDialogOpen = false;
+            SelectedSale = null;
+        }
+
+        // --- HELPER ---
+
+        private async Task RefreshCustomerData()
+        {
+             // Müşteriyi yeniden yükle ve listeyi güncelle
+             // CustomerService üzerinden tam veri çekmek gerekebilir ama basitçe SaleService üzerinden yenilenip yenilenmediğine bakalım.
+             // En temiz yöntem, Customer'ı DB'den tazelemek.
+             
+             try 
+             {
+                 // Burada CustomerService'e ihtiyaç duyabiliriz aslında ama elimizde zaten SaleService var. 
+                 // Müşteri güncellemesi için CustomerService'i kullanmak daha doğru olur.
+                 var customerService = new CustomerService(); 
+                 // Basit bir refresh, bu örnekte tüm müşterileri çekmek yerine tek müşteriyi çekmek daha iyi olurdu ama
+                 // mevcut yapıda GetAll veya Search kullanılıyor genelde.
+                 // Şimdilik sadece FilterSales'i tetikleyelim (hafızadaki nesneler güncellendiyse).
+                 // Ancak Entity Framework takipli değilse manuel yenilemek lazım.
+                 
+                 // Customer nesnesinin Payments koleksiyonunun güncel olduğundan emin olmalıyız.
+                 // SaleService operasyonları (AddPartialPayment) DB'yi günceller.
+                 // Bizim görünümümüzdeki Customer nesnesi eski kalmış olabilir.
+                 
+                 // En güvenli yol:
+                 var updatedCustomer = (await customerService.SearchCustomersAsync(Customer.Phone)).FirstOrDefault(); // Telefon ya da ID ile bul
+                 
+                 // ID ile bulma metodu yoksa, basitçe listeyi yenilemeyi deneyelim.
+                 // Şimdilik sadece bellekteki Payments listesinin güncellenmesini umalım (eğer aynı context ise).
+                 // Context farklı ise, UI'daki Customer.Payments güncellenmeyecektir.
+                 
+                 // Hızlı çözüm: SaleService.GetSaleByIdAsync ile güncellenen satışı bulup listede yerine koymak.
+                 if (SelectedSale != null)
+                 {
+                     var refreshedSale = await _saleService.GetSaleByIdAsync(SelectedSale.Id);
+                     if (refreshedSale != null)
+                     {
+                         var existingItem = Customer.Payments.FirstOrDefault(p => p.Id == refreshedSale.Id);
+                         if (existingItem != null)
+                         {
+                             // Özellikleri güncelle
+                             existingItem.PaidAmount = refreshedSale.PaidAmount;
+                             existingItem.RemainingAmount = refreshedSale.RemainingAmount;
+                             existingItem.IsFullyPaid = refreshedSale.IsFullyPaid;
+                             existingItem.PaymentType = refreshedSale.PaymentType;
+                             // vs.
+                         }
+                     }
+                 }
+                 
+                 FilterSales();
+             }
+             catch
+             {
+                 // Hata olursa sessizce devam et
+             }
+        }
+
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
-} 
+}
