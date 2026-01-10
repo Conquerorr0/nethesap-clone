@@ -204,7 +204,7 @@
                                  IsOpen="{Binding IsSaleDetailsDialogOpen}" 
                                  CloseOnClickAway="True">
             <materialDesign:DialogHost.DialogContent>
-                <Grid Width="700" MinHeight="400">
+                <Grid Width="800" MinHeight="500">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -213,116 +213,164 @@
                     </Grid.RowDefinitions>
                     
                     <!-- Dialog Title -->
-                    <TextBlock Grid.Row="0" 
-                             Text="Satış Detayları" 
-                             Style="{StaticResource MaterialDesignHeadline6TextBlock}"
-                             Margin="16 16 16 16"/>
+                    <DockPanel Grid.Row="0" Margin="24 24 24 16">
+                        <materialDesign:PackIcon Kind="Receipt" 
+                                               Width="32" Height="32" 
+                                               VerticalAlignment="Center" 
+                                               Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+                        <TextBlock Text="Satış Detayları" 
+                                 Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                                 Margin="16 0 0 0"
+                                 VerticalAlignment="Center"/>
+                    </DockPanel>
                     
-                    <!-- Sale Information -->
-                    <Grid Grid.Row="1" Margin="16 0 16 16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        
-                        <!-- Müşteri -->
-                        <TextBlock Grid.Row="0" Grid.Column="0" 
-                                 Text="Müşteri:" 
-                                 FontWeight="Bold"
-                                 Margin="0 0 8 8"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" 
-                                 Margin="0 0 16 8">
-                            <Run Text="{Binding SelectedSale.Customer.FirstName}"/>
-                            <Run Text="{Binding SelectedSale.Customer.LastName}"/>
-                        </TextBlock>
-                        
-                        <!-- Tarih -->
-                        <TextBlock Grid.Row="0" Grid.Column="2" 
-                                 Text="Tarih:" 
-                                 FontWeight="Bold"
-                                 Margin="0 0 8 8"/>
-                        <TextBlock Grid.Row="0" Grid.Column="3" 
-                                 Text="{Binding SelectedSale.CreatedDate, StringFormat={}{0:dd.MM.yyyy HH:mm}}" 
-                                 Margin="0 0 0 8"/>
-                        
-                        <!-- Ödeme Yöntemi -->
-                        <TextBlock Grid.Row="1" Grid.Column="0" 
-                                 Text="Ödeme Yöntemi:" 
-                                 FontWeight="Bold"
-                                 Margin="0 0 8 8"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" 
-                                 Margin="0 0 16 8">
-                            <TextBlock.Text>
-                                <Binding Path="SelectedSale.PaymentMethod">
-                                    <Binding.Converter>
-                                        <converters:PaymentMethodConverter/>
-                                    </Binding.Converter>
-                                </Binding>
-                            </TextBlock.Text>
-                        </TextBlock>
-                        
-                        <!-- Ödeme Türü -->
-                        <TextBlock Grid.Row="1" Grid.Column="2" 
-                                 Text="Ödeme Türü:" 
-                                 FontWeight="Bold"
-                                 Margin="0 0 8 8"/>
-                        <TextBlock Grid.Row="1" Grid.Column="3" 
-                                 Margin="0 0 0 8">
-                            <TextBlock.Text>
-                                <Binding Path="SelectedSale.PaymentType">
-                                    <Binding.Converter>
-                                        <converters:PaymentTypeConverter/>
-                                    </Binding.Converter>
-                                </Binding>
-                            </TextBlock.Text>
-                        </TextBlock>
-                        
-                        <!-- Toplam Tutar -->
-                        <TextBlock Grid.Row="2" Grid.Column="0" 
-                                 Text="Toplam Tutar:" 
-                                 FontWeight="Bold"
-                                 Margin="0 0 8 8"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" 
-                                 Text="{Binding SelectedSale.TotalAmount, StringFormat='{}{0:N2} TL'}" 
-                                 Margin="0 0 16 8"/>
-                    </Grid>
+                    <!-- Sale Summary Card -->
+                    <materialDesign:Card Grid.Row="1" Margin="24 0 24 24" Padding="16" UniformCornerRadius="8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/> <!-- Divider -->
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/> <!-- Divider -->
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <!-- Column 1: Customer & Date -->
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="MÜŞTERİ" 
+                                         Style="{StaticResource MaterialDesignCaptionTextBlock}" 
+                                         Opacity="0.6"/>
+                                <TextBlock Style="{StaticResource MaterialDesignSubtitle1TextBlock}" 
+                                         FontWeight="Bold" Margin="0 4 0 16">
+                                    <Run Text="{Binding SelectedSale.Customer.FirstName}"/>
+                                    <Run Text="{Binding SelectedSale.Customer.LastName}"/>
+                                </TextBlock>
+                                
+                                <TextBlock Text="İŞLEM TARİHİ" 
+                                         Style="{StaticResource MaterialDesignCaptionTextBlock}" 
+                                         Opacity="0.6"/>
+                                <TextBlock Text="{Binding SelectedSale.CreatedDate, StringFormat='{}{0:dd MMMM yyyy, HH:mm}'}" 
+                                         Style="{StaticResource MaterialDesignBody2TextBlock}" 
+                                         Margin="0 4 0 0"/>
+                            </StackPanel>
+                            
+                            <!-- Divider 1 -->
+                            <Rectangle Grid.Column="1" Width="1" Fill="{DynamicResource MaterialDesignDivider}" Margin="16 0"/>
+
+                            <!-- Column 2: Payment Info -->
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="ÖDEME YÖNTEMİ" 
+                                         Style="{StaticResource MaterialDesignCaptionTextBlock}" 
+                                         Opacity="0.6"/>
+                                <StackPanel Orientation="Horizontal" Margin="0 4 0 16">
+                                    <materialDesign:PackIcon Kind="CreditCardOutline" VerticalAlignment="Center" Margin="0 0 8 0"/>
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold">
+                                        <TextBlock.Text>
+                                            <Binding Path="SelectedSale.PaymentMethod">
+                                                <Binding.Converter>
+                                                    <converters:PaymentMethodConverter/>
+                                                </Binding.Converter>
+                                            </Binding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
+                                </StackPanel>
+                                
+                                <TextBlock Text="İŞLEM TÜRÜ" 
+                                         Style="{StaticResource MaterialDesignCaptionTextBlock}" 
+                                         Opacity="0.6"/>
+                                <materialDesign:Chip Margin="0 4 0 0" FontSize="12" Padding="8 4">
+                                     <materialDesign:Chip.Content>
+                                        <TextBlock>
+                                            <TextBlock.Text>
+                                                <Binding Path="SelectedSale.PaymentType">
+                                                    <Binding.Converter>
+                                                        <converters:PaymentTypeConverter/>
+                                                    </Binding.Converter>
+                                                </Binding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
+                                     </materialDesign:Chip.Content>
+                                </materialDesign:Chip>
+                            </StackPanel>
+
+                            <!-- Divider 2 -->
+                            <Rectangle Grid.Column="3" Width="1" Fill="{DynamicResource MaterialDesignDivider}" Margin="16 0"/>
+
+                            <!-- Column 3: Financials -->
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="TOPLAM TUTAR" 
+                                         Style="{StaticResource MaterialDesignCaptionTextBlock}" 
+                                         Opacity="0.6"/>
+                                <TextBlock Text="{Binding SelectedSale.TotalAmount, StringFormat='{}{0:N2} TL'}" 
+                                         Style="{StaticResource MaterialDesignHeadline6TextBlock}" 
+                                         Foreground="{DynamicResource PrimaryHueMidBrush}"
+                                         FontWeight="Bold"
+                                         Margin="0 4 0 0"/>
+                                         
+                                <Grid Margin="0 16 0 0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Ödenen" FontSize="11" Opacity="0.6"/>
+                                        <TextBlock Text="{Binding SelectedSale.PaidAmount, StringFormat='{}{0:N2} TL'}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="Kalan" FontSize="11" Opacity="0.6"/>
+                                        <TextBlock Text="{Binding SelectedSale.RemainingAmount, StringFormat='{}{0:N2} TL'}"
+                                                 Foreground="Red" FontWeight="Bold"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+                    </materialDesign:Card>
                     
                     <!-- Sale Items -->
-                    <DataGrid Grid.Row="2" 
-                            ItemsSource="{Binding SelectedSale.PaymentItems}"
-                            AutoGenerateColumns="False"
-                            IsReadOnly="True"
-                            Margin="16 0 16 16">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Ürün" 
-                                              Binding="{Binding Product.Name}"
-                                              Width="*"/>
-                            <DataGridTextColumn Header="Miktar" 
-                                              Binding="{Binding Quantity}"
-                                              Width="Auto"/>
-                            <DataGridTextColumn Header="Birim Fiyat" 
-                                              Binding="{Binding UnitPrice, StringFormat='{}{0:N2} TL'}"
-                                              Width="Auto"/>
-                            <DataGridTextColumn Header="Toplam" 
-                                              Binding="{Binding TotalPrice, StringFormat='{}{0:N2} TL'}"
-                                              Width="Auto"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <Border Grid.Row="2" Margin="24 0 24 16" 
+                            BorderThickness="1" 
+                            BorderBrush="{DynamicResource MaterialDesignDivider}"
+                            CornerRadius="4">
+                        <DataGrid ItemsSource="{Binding SelectedSale.PaymentItems}"
+                                AutoGenerateColumns="False"
+                                IsReadOnly="True"
+                                HeadersVisibility="All"
+                                CanUserSortColumns="True"
+                                BorderThickness="0"
+                                materialDesign:DataGridAssist.CellPadding="16 8 8 8"
+                                materialDesign:DataGridAssist.ColumnHeaderPadding="16 8 8 8">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Ürün Adı" 
+                                                  Binding="{Binding Product.Name}"
+                                                  Width="2*"
+                                                  ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
+                                                  
+                                <DataGridTextColumn Header="Miktar" 
+                                                  Binding="{Binding Quantity}"
+                                                  Width="Auto"
+                                                  ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
+                                                  
+                                <DataGridTextColumn Header="Birim Fiyat" 
+                                                  Binding="{Binding UnitPrice, StringFormat='{}{0:N2} TL'}"
+                                                  Width="*"
+                                                  ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
+                                                  
+                                <DataGridTextColumn Header="Toplam" 
+                                                  Binding="{Binding TotalPrice, StringFormat='{}{0:N2} TL'}"
+                                                  Width="*"
+                                                  FontWeight="Bold"
+                                                  ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
                     
                     <!-- Close Button -->
-                    <Button Grid.Row="3" 
-                          Command="{Binding CloseSaleDetailsCommand}"
-                          Content="Kapat"
-                          Style="{StaticResource MaterialDesignFlatButton}"
-                          HorizontalAlignment="Right"
-                          Margin="16"/>
+                    <Border Grid.Row="3" Padding="24" Background="{DynamicResource MaterialDesignPaper}">
+                        <Button Command="{Binding CloseSaleDetailsCommand}"
+                              Content="Kapat"
+                              Style="{StaticResource MaterialDesignFlatButton}"
+                              HorizontalAlignment="Right"/>
+                    </Border>
                 </Grid>
             </materialDesign:DialogHost.DialogContent>
         </materialDesign:DialogHost>
@@ -425,129 +473,37 @@
                                   IsOpen="{Binding IsPaymentHistoryDialogOpen}" 
                                   CloseOnClickAway="True">
              <materialDesign:DialogHost.DialogContent>
-                 <Grid Width="900" MinHeight="500">
+                 <Grid Width="600" MinHeight="300">
                      <Grid.RowDefinitions>
-                         <RowDefinition Height="Auto"/>
                          <RowDefinition Height="Auto"/>
                          <RowDefinition Height="*"/>
                          <RowDefinition Height="Auto"/>
                      </Grid.RowDefinitions>
                      
-                     <!-- Header -->
-                     <DockPanel Grid.Row="0" Margin="24 24 24 16">
-                         <TextBlock Text="Ödeme Geçmişi" 
-                                  Style="{StaticResource MaterialDesignHeadline5TextBlock}"
-                                  FontWeight="Bold"
-                                  VerticalAlignment="Center"/>
-                                  
-                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                             <materialDesign:Chip Content="{Binding SelectedSale.PaymentType}" 
-                                                IconBackground="{StaticResource PrimaryHueMidBrush}"
-                                                IconForeground="{StaticResource PrimaryHueMidForegroundBrush}"
-                                                Margin="0 0 8 0">
-                                 <materialDesign:Chip.Icon>
-                                     <materialDesign:PackIcon Kind="Tag" />
-                                 </materialDesign:Chip.Icon>
-                             </materialDesign:Chip>
-                             
-                             <materialDesign:Chip Content="{Binding SelectedSale.CreatedDate, StringFormat='{}{0:dd.MM.yyyy HH:mm}'}"
-                                                IconBackground="{StaticResource SecondaryHueMidBrush}"
-                                                IconForeground="{StaticResource SecondaryHueMidForegroundBrush}">
-                                 <materialDesign:Chip.Icon>
-                                     <materialDesign:PackIcon Kind="Calendar" />
-                                 </materialDesign:Chip.Icon>
-                             </materialDesign:Chip>
-                         </StackPanel>
-                     </DockPanel>
-                     
-                     <!-- Summary Card -->
-                     <materialDesign:Card Grid.Row="1" Margin="24 0 24 16" Padding="16" Background="{DynamicResource MaterialDesignPaper}">
-                         <Grid>
-                             <Grid.ColumnDefinitions>
-                                 <ColumnDefinition Width="*"/>
-                                 <ColumnDefinition Width="Auto"/> <!-- Divider -->
-                                 <ColumnDefinition Width="*"/>
-                                 <ColumnDefinition Width="Auto"/> <!-- Divider -->
-                                 <ColumnDefinition Width="*"/>
-                             </Grid.ColumnDefinitions>
-                             
-                             <!-- Total Amount -->
-                             <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                                 <TextBlock Text="TOPLAM TUTAR" 
-                                          Style="{StaticResource MaterialDesignCaptionTextBlock}" 
-                                          Opacity="0.6"
-                                          HorizontalAlignment="Center"/>
-                                 <TextBlock Text="{Binding SelectedSale.TotalAmount, StringFormat='{}{0:C2}'}" 
-                                          Style="{StaticResource MaterialDesignHeadline6TextBlock}"
-                                          FontWeight="Bold"
-                                          HorizontalAlignment="Center"/>
-                             </StackPanel>
-                             
-                             <Border Grid.Column="1" Width="1" Background="{DynamicResource MaterialDesignDivider}" Margin="8 0"/>
-                             
-                             <!-- Paid Amount -->
-                             <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                                 <TextBlock Text="ÖDENEN TUTAR" 
-                                          Style="{StaticResource MaterialDesignCaptionTextBlock}" 
-                                          Opacity="0.6"
-                                          HorizontalAlignment="Center"/>
-                                 <TextBlock Text="{Binding SelectedSale.PaidAmount, StringFormat='{}{0:C2}'}" 
-                                          Style="{StaticResource MaterialDesignHeadline6TextBlock}"
-                                          Foreground="Green"
-                                          FontWeight="Bold"
-                                          HorizontalAlignment="Center"/>
-                             </StackPanel>
-                             
-                             <Border Grid.Column="3" Width="1" Background="{DynamicResource MaterialDesignDivider}" Margin="8 0"/>
-                             
-                             <!-- Remaining Amount -->
-                             <StackPanel Grid.Column="4" HorizontalAlignment="Center">
-                                 <TextBlock Text="KALAN TUTAR" 
-                                          Style="{StaticResource MaterialDesignCaptionTextBlock}" 
-                                          Opacity="0.6"
-                                          HorizontalAlignment="Center"/>
-                                 <TextBlock Text="{Binding SelectedSale.RemainingAmount, StringFormat='{}{0:C2}'}" 
-                                          Style="{StaticResource MaterialDesignHeadline6TextBlock}"
-                                          Foreground="Red"
-                                          FontWeight="Bold"
-                                          HorizontalAlignment="Center"/>
-                             </StackPanel>
-                         </Grid>
-                     </materialDesign:Card>
+                     <TextBlock Grid.Row="0" 
+                              Text="Ödeme Geçmişi" 
+                              Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                              Margin="16"/>
                               
-                     <!-- Transactions Grid -->
-                     <DataGrid Grid.Row="2"
+                     <DataGrid Grid.Row="1"
                              ItemsSource="{Binding SelectedSale.Transactions}"
                              AutoGenerateColumns="False"
                              IsReadOnly="True"
-                             CanUserSortColumns="True"
-                             HeadersVisibility="All"
-                             Margin="24 0 24 0"
-                             BorderThickness="1"
-                             BorderBrush="{DynamicResource MaterialDesignDivider}">
+                             Margin="16">
                          <DataGrid.Columns>
-                             <DataGridTextColumn Header="Tarih" 
-                                               Binding="{Binding TransactionDate, StringFormat={}{0:dd.MM.yyyy HH:mm}}" 
-                                               Width="150"/>
-                             <DataGridTextColumn Header="Açıklama" 
-                                               Binding="{Binding Description}" 
-                                               Width="*"/>
-                             <DataGridTextColumn Header="Tutar" 
-                                               Binding="{Binding Amount, StringFormat={}{0:C2}}" 
-                                               Width="120"
-                                               ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
-                             <DataGridTextColumn Header="İşlem Tipi" 
-                                               Binding="{Binding Type}" 
-                                               Width="120"/>
+                             <DataGridTextColumn Header="Tarih" Binding="{Binding TransactionDate, StringFormat={}{0:dd.MM.yyyy HH:mm}}" Width="*"/>
+                             <DataGridTextColumn Header="Açıklama" Binding="{Binding Description}" Width="2*"/>
+                             <DataGridTextColumn Header="Tutar" Binding="{Binding Amount, StringFormat={}{0:N2} TL}" Width="*"/>
+                             <DataGridTextColumn Header="İşlem Tipi" Binding="{Binding Type}" Width="*"/>
                          </DataGrid.Columns>
                      </DataGrid>
                      
-                     <Button Grid.Row="3"
+                     <Button Grid.Row="2"
                            Command="{Binding ClosePaymentHistoryCommand}"
                            Content="Kapat"
                            Style="{StaticResource MaterialDesignFlatButton}"
                            HorizontalAlignment="Right"
-                           Margin="24"/>
+                           Margin="16"/>
                  </Grid>
              </materialDesign:DialogHost.DialogContent>
          </materialDesign:DialogHost>
