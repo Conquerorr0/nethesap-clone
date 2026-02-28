@@ -31,6 +31,7 @@ namespace Nethesap.Domain.Entities
         Debt,
         Credit,
         PartialPayment,
-        FullPayment
+        FullPayment,
+        Refund
     }
-} 
+}

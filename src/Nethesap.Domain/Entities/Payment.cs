@@ -21,7 +21,10 @@ namespace Nethesap.Domain.Entities
         public PaymentType PaymentType { get; set; }
         public string? Description { get; set; }
         public DateTime CreatedDate { get; set; }
+
         public DateTime? DueDate { get; set; } // Ödeme vadesi
+        
+        public bool IsFullyRefunded { get; set; } // Tamamen iade edilip edilmediği
         
         [InverseProperty("Payment")]
         public virtual ICollection<PaymentItem> PaymentItems { get; set; } = new List<PaymentItem>();

@@ -371,23 +371,28 @@ namespace Nethesap.UI.Services
         }
 
         /// <summary>
-        /// Satış iade işlemi
+        /// Satış iade işlemi (Kısmi/Tam)
         /// </summary>
         /// <param name="originalSaleId">Orijinal satış ID'si</param>
-        /// <param name="refundItems">İade edilecek ürünler</param>
+        /// <param name="refundItems">İade edilecek ürünler (Quantity alanında iade edilecek adet olmalı)</param>
         /// <returns>İşlem başarılı ise true, değilse false</returns>
         public async Task<bool> RefundSaleAsync(Guid originalSaleId, IEnumerable<PaymentItem> refundItems)
         {
+            using var context = new AppDbContext(); // Isolate context
+            using var transaction = await context.Database.BeginTransactionAsync();
+
             try
             {
-                // Orijinal satışı getir
-                var originalSale = await GetSaleByIdAsync(originalSaleId);
-                if (originalSale == null)
-                {
-                    return false;
-                }
+                // 1. Orijinal satışı ve kalemlerini getir
+                var originalSale = await context.Payments
+                    .Include(p => p.PaymentItems)
+                    .ThenInclude(pi => pi.Product)
+                    .FirstOrDefaultAsync(p => p.Id == originalSaleId);
 
-                // İade satışını oluştur
+                if (originalSale == null)
+                    throw new InvalidOperationException("Satış bulunamadı.");
+
+                // 2. İade satış kaydını oluştur
                 var refundSale = new Payment
                 {
                     Id = Guid.NewGuid(),
@@ -395,52 +400,139 @@ namespace Nethesap.UI.Services
                     CreatedDate = DateTime.Now,
                     PaymentMethod = originalSale.PaymentMethod,
                     PaymentType = PaymentType.Refund,
-                    Description = $"İade: {originalSale.Description}",
-                    PaymentItems = new Collection<PaymentItem>()
+                    Description = $"İade: {originalSale.Description ?? "SATIŞ"} (Ref: {originalSaleId.ToString().Substring(0, 8)})",
+                    PaymentItems = new List<PaymentItem>(),
+                    IsFullyRefunded = true // Bu kayıt kendisi bir iade kaydı olduğu için listede gösterilmeyebilir veya filtreye takılabilir
+                    // Not: İade kaydı "Sale" olmadığı için zaten ana listede PaymentType ile filtrelenir veya görünür.
+                    // Ana satışın IsFullyRefunded durumu aşağıda güncellenecek.
                 };
 
                 decimal totalRefundAmount = 0;
+                bool isFullRefund = true; // Başlangıç varsayımı
 
-                // İade edilecek ürünleri ekle
-                foreach (var item in refundItems)
+                // 3. Seçili ürünleri işle
+                foreach (var refundItemReq in refundItems)
                 {
-                    var refundItem = new PaymentItem
+                    // Orijinal kalemi bul
+                    var originalItem = originalSale.PaymentItems.FirstOrDefault(pi => pi.ProductId == refundItemReq.ProductId && pi.Id == refundItemReq.Id);
+                    
+                    if (originalItem == null)
+                        // Tam eşleşme yoksa ProductId ile dene (farklı item ID olabilir ama aynı ürün)
+                         originalItem = originalSale.PaymentItems.FirstOrDefault(pi => pi.ProductId == refundItemReq.ProductId);
+
+                    if (originalItem == null)
+                        throw new InvalidOperationException($"İade edilmek istenen ürün satışta bulunamadı (ID: {refundItemReq.ProductId})");
+
+                    // Miktar kontrolü
+                    int maxRefundable = originalItem.Quantity - originalItem.RefundedQuantity;
+                    if (refundItemReq.Quantity > maxRefundable)
+                         throw new InvalidOperationException($"'{originalItem.Product?.Name}' için iade edilebilir miktar aşıldı! (Max: {maxRefundable})");
+
+                    if (refundItemReq.Quantity <= 0) continue;
+
+                    // Orijinal kalemi güncelle
+                    originalItem.RefundedQuantity += refundItemReq.Quantity;
+                    context.Entry(originalItem).State = EntityState.Modified;
+
+                    // İade kalemi oluştur
+                    var newRefundItem = new PaymentItem
                     {
                         Id = Guid.NewGuid(),
                         PaymentId = refundSale.Id,
-                        ProductId = item.ProductId,
-                        Quantity = item.Quantity,
-                        UnitPrice = item.UnitPrice,
-                        TotalPrice = item.UnitPrice * item.Quantity
+                        ProductId = refundItemReq.ProductId,
+                        Quantity = refundItemReq.Quantity,
+                        UnitPrice = originalItem.UnitPrice,
+                        TotalPrice = originalItem.UnitPrice * refundItemReq.Quantity,
+                        RefundedQuantity = 0
                     };
+                    
+                    refundSale.PaymentItems.Add(newRefundItem);
+                    totalRefundAmount += newRefundItem.TotalPrice;
 
-                    refundSale.PaymentItems.Add(refundItem);
-                    totalRefundAmount += refundItem.TotalPrice;
-                }
-
-                refundSale.TotalAmount = -totalRefundAmount; // İade tutarı negatif olarak kaydedilir
-
-                // Satışı ekle
-                await _paymentRepository.AddAsync(refundSale);
-
-                // Stok miktarlarını güncelle (iade edildiği için artır)
-                foreach (var item in refundItems)
-                {
-                    var product = await _productRepository.GetByIdAsync(item.ProductId);
+                    // Stok güncelle (Artır)
+                    var product = await context.Products.FindAsync(refundItemReq.ProductId);
                     if (product != null)
                     {
-                        product.StockQuantity += item.Quantity;
-                        await _productRepository.UpdateAsync(product);
+                        product.StockQuantity += refundItemReq.Quantity;
+                        context.Entry(product).State = EntityState.Modified;
                     }
                 }
 
+                if (totalRefundAmount <= 0)
+                    throw new InvalidOperationException("İade edilecek ürün seçilmedi.");
+
+                refundSale.TotalAmount = -totalRefundAmount; // Negatif tutar
+                refundSale.RemainingAmount = 0;
+                refundSale.PaidAmount = refundSale.TotalAmount; // Tamamı ödenmiş (iade edilmiş) sayılır
+                refundSale.IsFullyPaid = true;
+
+                // 4. Orijinal Satışın "IsFullyRefunded" durumunu kontrol et
+                // Tüm ürünlerin tamamı iade edilmiş mi?
+                bool allItemsRefunded = true;
+                foreach (var item in originalSale.PaymentItems)
+                {
+                    if (item.RefundedQuantity < item.Quantity)
+                    {
+                        allItemsRefunded = false;
+                        break;
+                    }
+                }
+                originalSale.IsFullyRefunded = allItemsRefunded;
+                context.Entry(originalSale).State = EntityState.Modified;
+
+                // 5. Kayıtları ekle
+                context.Payments.Add(refundSale);
+
+                // 6. Finansal Transaction (Para iadesi / Borç silme)
+                var refundTransaction = new Transaction
+                {
+                    Id = Guid.NewGuid(),
+                    CustomerId = refundSale.CustomerId,
+                    PaymentId = refundSale.Id,
+                    Amount = -totalRefundAmount, // Bakiyeyi düşür (borcu azalt) -> Aslında satış (+), iade (-) olmalı.
+                    // Fakat sistem "Amount"ları topluyor. Satış BORÇ(Debt) olarak ekleniyorsa (+), İade ALACAK/ÖDEME (-) gibi olmalı.
+                    // SaleService.AddSaleAsync'de Debt = +TotalAmount.
+                    // Burada -TotalAmount veriyoruz ki bakiye düşsün.
+                    // Ama TotalRefundAmount pozitif (örn 100 TL). Biz -100 eklemeliyiz.
+                    // refundSale.TotalAmount zaten -100.
+                    // Transaction Amount: -100.
+                    
+                    Type = TransactionType.Refund,
+                    Description = refundSale.Description,
+                    TransactionDate = DateTime.Now,
+                    TotalDueAmount = 0,
+                    PaidAmount = 0
+                };
+                // Ancak dikkat: Debt transaction pozitiftir. Payment transaction negatiftir.
+                // Refund transaction da negatif olmalıdır ki borcu silsin.
+                refundTransaction.Amount = -Math.Abs(totalRefundAmount); 
+                
+                await context.Transactions.AddAsync(refundTransaction);
+
+                await context.SaveChangesAsync();
+
+                // 7. Müşteri Bakiyesini Güncelle
+                 var customerTransactions = await context.Transactions
+                    .Where(t => t.CustomerId == originalSale.CustomerId)
+                    .ToListAsync();
+                
+                decimal totalBalance = customerTransactions.Sum(t => t.Amount);
+                var customer = await context.Customers.FindAsync(originalSale.CustomerId);
+                if (customer != null)
+                {
+                    customer.Balance = totalBalance;
+                    context.Entry(customer).State = EntityState.Modified;
+                    await context.SaveChangesAsync();
+                }
+
+                await transaction.CommitAsync();
                 return true;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"İade işlemi sırasında hata oluştu: {ex.Message}");
-                Console.WriteLine($"InnerException: {ex.InnerException?.Message}");
-                return false;
+                await transaction.RollbackAsync();
+                Console.WriteLine($"İade hatası: {ex.Message}");
+                throw;
             }
         }
 

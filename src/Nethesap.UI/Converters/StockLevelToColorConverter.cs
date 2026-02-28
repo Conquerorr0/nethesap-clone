@@ -26,8 +26,8 @@ namespace Nethesap.UI.Converters
                 }
                 else
                 {
-                    // Yeterli stok - Normal
-                    return new SolidColorBrush(Colors.Transparent);
+                    // Yeterli stok - Yeşil
+                    return new SolidColorBrush(Color.FromRgb(46, 125, 50)); // Green 700
                 }
             }
 

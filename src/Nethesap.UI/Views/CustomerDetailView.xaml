@@ -349,6 +349,25 @@
                                                   Binding="{Binding Quantity}"
                                                   Width="Auto"
                                                   ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
+
+                                <DataGridTemplateColumn Header="İade" Width="Auto">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding RefundedQuantity, StringFormat='{}{0} Adet'}" 
+                                                       Foreground="Red" FontWeight="Bold">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding RefundedQuantity}" Value="0">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                                   
                                 <DataGridTextColumn Header="Birim Fiyat" 
                                                   Binding="{Binding UnitPrice, StringFormat='{}{0:N2} TL'}"
@@ -507,54 +526,6 @@
                  </Grid>
              </materialDesign:DialogHost.DialogContent>
          </materialDesign:DialogHost>
-
-        <!-- Refund Dialog -->
-        <materialDesign:DialogHost Grid.RowSpan="3"
-                                 IsOpen="{Binding IsRefundDialogOpen}"
-                                 CloseOnClickAway="False">
-            <materialDesign:DialogHost.DialogContent>
-                <Grid Width="400" Margin="16">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    
-                    <TextBlock Grid.Row="0"
-                             Text="Satış İadesi"
-                             Style="{StaticResource MaterialDesignHeadline6TextBlock}"
-                             Margin="0 0 0 16"/>
-                    
-                    <TextBlock Grid.Row="1"
-                             Margin="0 0 0 16">
-                        <Run Text="Müşteri: "/>
-                        <Run Text="{Binding SelectedSale.Customer.FirstName}"/>
-                        <Run Text=" "/>
-                        <Run Text="{Binding SelectedSale.Customer.LastName}"/>
-                    </TextBlock>
-                    
-                    <TextBlock Grid.Row="2"
-                             Margin="0 0 0 16">
-                        <Run Text="İade Tutarı: "/>
-                        <Run Text="{Binding SelectedSale.TotalAmount, StringFormat='{}{0:N2} TL'}" FontWeight="Bold"/>
-                    </TextBlock>
-                    
-                    <StackPanel Grid.Row="3"
-                              Orientation="Horizontal"
-                              HorizontalAlignment="Right">
-                        <Button Command="{Binding CancelRefundCommand}"
-                              Style="{StaticResource MaterialDesignOutlinedButton}"
-                              Content="İptal"
-                              Margin="0 0 8 0"/>
-                        
-                        <Button Command="{Binding ProcessRefundCommand}"
-                              Style="{StaticResource MaterialDesignRaisedButton}"
-                              Content="İade Et"/>
-                    </StackPanel>
-                </Grid>
-            </materialDesign:DialogHost.DialogContent>
-        </materialDesign:DialogHost>
 
     </Grid>
 </UserControl>

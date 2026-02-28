@@ -7,6 +7,7 @@ using Nethesap.Domain.Entities;
 using Nethesap.Domain.IRepositories;
 using Nethesap.Infrastructure.Data;
 using Nethesap.Infrastructure.RepositoryImplementations;
+using Microsoft.EntityFrameworkCore;
 
 namespace Nethesap.UI.Services
 {
@@ -36,7 +37,11 @@ namespace Nethesap.UI.Services
         {
             try
             {
-                var products = await _productRepository.GetAllAsync();
+                // Veritabanından güncel veriyi zorla çekmek için tracker'ı temizle
+                _dbContext.ChangeTracker.Clear();
+                var products = await _productRepository.Query()
+                    .AsNoTracking()
+                    .ToListAsync();
                 return new ObservableCollection<Product>(products);
             }
             catch (Exception ex)
@@ -64,13 +69,18 @@ namespace Nethesap.UI.Services
                 // Arama metnini küçük harfe çevir
                 searchText = searchText.ToLower();
 
+                // Veritabanından güncel veriyi zorla çekmek için tracker'ı temizle
+                _dbContext.ChangeTracker.Clear();
+
                 // Veritabanında arama yap
-                var products = await _productRepository.FindAsync(p =>
-                    p.Name.ToLower().Contains(searchText) ||
-                    p.Barcode.ToLower().Contains(searchText) ||
-                    p.Description.ToLower().Contains(searchText) ||
-                    p.Category.ToLower().Contains(searchText)
-                );
+                var products = await _productRepository.Query()
+                    .AsNoTracking()
+                    .Where(p =>
+                        p.Name.ToLower().Contains(searchText) ||
+                        p.Barcode.ToLower().Contains(searchText) ||
+                        p.Description.ToLower().Contains(searchText) ||
+                        p.Category.ToLower().Contains(searchText)
+                    ).ToListAsync();
 
                 // Sonuçları sırala (önce tam eşleşmeler, sonra kısmi eşleşmeler)
                 var sortedProducts = products.OrderBy(p =>
@@ -101,7 +111,10 @@ namespace Nethesap.UI.Services
         {
             try
             {
-                return await _productRepository.GetByIdAsync(id);
+                _dbContext.ChangeTracker.Clear();
+                return await _productRepository.Query()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Id == id);
             }
             catch (Exception ex)
             {
@@ -125,7 +138,10 @@ namespace Nethesap.UI.Services
                     return null;
                 }
 
-                var product = await _productRepository.SingleOrDefaultAsync(p => p.Barcode == barcode);
+                _dbContext.ChangeTracker.Clear();
+                var product = await _productRepository.Query()
+                    .AsNoTracking()
+                    .SingleOrDefaultAsync(p => p.Barcode == barcode);
                 return product;
             }
             catch (Exception ex)
@@ -223,7 +239,11 @@ namespace Nethesap.UI.Services
         {
             try
             {
-                var products = await _productRepository.FindAsync(p => p.StockQuantity <= threshold);
+                _dbContext.ChangeTracker.Clear();
+                var products = await _productRepository.Query()
+                    .AsNoTracking()
+                    .Where(p => p.StockQuantity <= threshold)
+                    .ToListAsync();
                 return new ObservableCollection<Product>(products);
             }
             catch (Exception ex)

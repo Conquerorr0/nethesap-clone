@@ -121,23 +121,32 @@ public class DashboardViewModel : INotifyPropertyChanged
     {
         try
         {
-            // Tüm satışları çek
-            var allSales = await _saleService.GetAllSalesAsync();
+            // Tüm verileri çek
+            var allPayments = await _saleService.GetAllSalesAsync();
             
             // Finansal metrikleri hesapla
-            if (allSales != null && allSales.Any())
+            if (allPayments != null && allPayments.Any())
             {
-                // Sadece satış tipindeki kayıtları al (iade hariç)
-                var sales = allSales.Where(s => s.PaymentType == PaymentType.Sale).ToList();
+                // Satışlar ve İadeler
+                var sales = allPayments.Where(s => s.PaymentType == PaymentType.Sale).ToList();
+                var refunds = allPayments.Where(s => s.PaymentType == PaymentType.Refund).ToList();
                 
-                // Genel Bakiye: Toplam satışlar (tüm satın alınan ürünlerin toplam değeri)
-                TotalBalance = sales.Sum(s => s.TotalAmount);
+                // Toplamlar (Brüt)
+                decimal grossSales = sales.Sum(s => s.TotalAmount);
+                decimal totalRefunds = refunds.Sum(s => Math.Abs(s.TotalAmount)); // Refund tutarları negatiftir, mutlak değer al
                 
-                // Toplam Alacak: Ödenen kısım
-                TotalReceivables = sales.Sum(s => s.PaidAmount);
+                // Net Bakiye: Toplam Satış - Toplam İade
+                TotalBalance = grossSales - totalRefunds;
                 
-                // Toplam Borç: Ödenmeyen kısım (kalan borç)
-                TotalPayables = sales.Sum(s => s.RemainingAmount);
+                // Toplam Alacak: Ödenen Kısım (Satışlardan ödenen - İade edilen nakit/kart)
+                // Not: Basitleştirilmiş varsayım - İade anında ödenmiş (paid) kabul ediyoruz.
+                decimal grossPaid = sales.Sum(s => s.PaidAmount);
+                decimal refundPaid = refunds.Sum(s => Math.Abs(s.PaidAmount));
+                TotalReceivables = grossPaid - refundPaid;
+                
+                // Toplam Borç: Kalan (Satışların borcu) - (İadelerin 'kalanı' genelde 0'dır ama borç düşüldüyse hesaba katılmalı)
+                // İade işlemi borçtan düşüyorsa, transaction bazında bakmak daha doğru olur ama basitçe:
+                TotalPayables = sales.Sum(s => s.RemainingAmount); 
             }
             else
             {
@@ -146,27 +155,24 @@ public class DashboardViewModel : INotifyPropertyChanged
                 TotalPayables = 0;
             }
 
-            // Veritabanından son işlemleri al
-            // Not: Burada gerçek bir servis kullanılmalı
-            var transactions = new List<TransactionItem>();
+            // Son işlemleri yükle
+            var transactions = allPayments.OrderByDescending(p => p.CreatedDate)
+                                          .Take(10)
+                                          .Select(p => new TransactionItem
+                                          {
+                                              Description = p.Customer != null ? $"{p.Customer.FirstName} {p.Customer.LastName}" : (p.Description ?? "İsimsiz İşlem"),
+                                              Date = p.CreatedDate,
+                                              Amount = p.PaymentType == PaymentType.Refund ? -Math.Abs(p.TotalAmount) : p.TotalAmount
+                                          });
             
-            // Grafik verilerini hazırla (varsayılan: Son 1 ay)
-            PrepareChartData(0);
-            
-            // Verileri UI'a bağla
             RecentTransactions = new ObservableCollection<TransactionItem>(transactions);
+
+            // Grafik verilerini ilk periyot için hazırla
+            PrepareChartData(SelectedPeriodIndex);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Veri yükleme hatası: {ex.Message}");
-            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-            // Hata durumunda boş koleksiyonlar oluştur
-            TotalBalance = 0;
-            TotalReceivables = 0;
-            TotalPayables = 0;
-            RecentTransactions = new ObservableCollection<TransactionItem>();
-            ChartSeries = new SeriesCollection();
-            ChartLabels = new string[0];
+            Console.WriteLine($"Dashboard verileri yüklenirken hata: {ex.Message}");
         }
     }
 
@@ -174,39 +180,29 @@ public class DashboardViewModel : INotifyPropertyChanged
     {
         try
         {
-            // Dinamik X-ekseni etiketlerini oluştur
             ChartLabels = GetDynamicLabelsForPeriod(periodIndex);
-            
-            // Tarih aralığını hesapla
             var (startDate, endDate) = GetDateRangeForPeriod(periodIndex);
             
-            // Veritabanından satış verilerini çek
-            var sales = await _saleService.GetSalesByDateRangeAsync(startDate, endDate);
+            // Veritabanından verileri çek (Satış + İade)
+            var payments = await _saleService.GetSalesByDateRangeAsync(startDate, endDate);
             
-            // Veri noktası sayısını periyoda göre ayarla
             int dataPointCount = ChartLabels.Length;
-            
-            // Gelir ve gider değerlerini hazırla
             var incomeValues = new ChartValues<double>();
             var expenseValues = new ChartValues<double>();
             
-            // Periyoda göre verileri grupla ve topla
             for (int i = 0; i < dataPointCount; i++)
             {
                 DateTime periodStart, periodEnd;
-                
                 switch (periodIndex)
                 {
                     case 0: // Son 1 ay - Haftalık
                         periodEnd = endDate.AddDays(-7 * i);
                         periodStart = periodEnd.AddDays(-7);
                         break;
-                        
                     case 1: // Son 3 ay - Aylık
                         periodEnd = endDate.AddMonths(-i);
                         periodStart = periodEnd.AddMonths(-1);
                         break;
-                        
                     case 2: // Son 6 ay - Aylık
                     default:
                         periodEnd = endDate.AddMonths(-i);
@@ -214,23 +210,26 @@ public class DashboardViewModel : INotifyPropertyChanged
                         break;
                 }
                 
-                // Bu periyottaki satışları filtrele
-                var periodSales = sales.Where(s => 
-                    s.CreatedDate >= periodStart && 
-                    s.CreatedDate < periodEnd &&
-                    s.PaymentType == PaymentType.Sale
+                // Periyottaki işlemler
+                var periodPayments = payments.Where(p => 
+                    p.CreatedDate >= periodStart && 
+                    p.CreatedDate < periodEnd
                 ).ToList();
                 
-                // Gelir: Satışların toplamı
-                double income = (double)periodSales.Sum(s => s.TotalAmount);
+                // Gelir: (Satışlar) - (İadeler)
+                double periodSales = (double)periodPayments.Where(p => p.PaymentType == PaymentType.Sale).Sum(s => s.TotalAmount);
+                double periodRefunds = (double)periodPayments.Where(p => p.PaymentType == PaymentType.Refund).Sum(s => Math.Abs(s.TotalAmount));
                 
-                // Gider: Ödenen tutarlar (basitleştirilmiş - gerçek uygulamada ayrı expense tablosu olabilir)
-                // Şimdilik satışların %60'ı gider olarak varsayılıyor
-                double expense = income * 0.6;
+                double netIncome = periodSales - periodRefunds;
+                if (netIncome < 0) netIncome = 0;
                 
-                incomeValues.Insert(0, income); // Ters sırada ekliyoruz (en eskiden en yeniye)
+                // Gider: Tahmini %60
+                double expense = netIncome * 0.6;
+                
+                incomeValues.Insert(0, netIncome); 
                 expenseValues.Insert(0, expense);
             }
+
             
             // Y-ekseni için maksimum değeri hesapla
             var allValues = incomeValues.Concat(expenseValues);

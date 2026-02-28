@@ -31,8 +31,6 @@ namespace Nethesap.UI.ViewModels
         private ICommand _viewPaymentHistoryCommand;
         private ICommand _closePaymentHistoryCommand;
         private ICommand _refundSaleCommand;
-        private ICommand _processRefundCommand;
-        private ICommand _cancelRefundCommand;
 
         private decimal _currentBalance;
         
@@ -225,8 +223,6 @@ namespace Nethesap.UI.ViewModels
         public ICommand ClosePaymentHistoryCommand => _closePaymentHistoryCommand ??= new RelayCommand(ClosePaymentHistory);
         
         public ICommand RefundSaleCommand => _refundSaleCommand ??= new RelayCommand<Payment>(OpenRefundDialog);
-        public ICommand ProcessRefundCommand => _processRefundCommand ??= new RelayCommand(ProcessRefund);
-        public ICommand CancelRefundCommand => _cancelRefundCommand ??= new RelayCommand(CancelRefund);
 
 
         // Constructor
@@ -278,8 +274,8 @@ namespace Nethesap.UI.ViewModels
                 );
             }
 
-            // Order by date (newest first)
-            filteredList = filteredList.OrderByDescending(p => p.CreatedDate);
+            // Order by date (chronological: oldest to newest)
+            filteredList = filteredList.OrderBy(p => p.CreatedDate);
 
             FilteredSales = new ObservableCollection<Payment>(filteredList);
 
@@ -427,31 +423,40 @@ namespace Nethesap.UI.ViewModels
 
         // --- REFUND LOGIC ---
 
-        private void OpenRefundDialog(Payment sale)
+        private async void OpenRefundDialog(Payment sale)
         {
              if (sale == null) return;
              
-             SelectedSale = sale;
-             IsRefundDialogOpen = true;
+             // Detayları tam al (Items vs)
+             var fullSale = await _saleService.GetSaleDetailsAsync(sale.Id);
+             if (fullSale == null) return;
+             
+             var vm = new RefundDialogViewModel(fullSale);
+             var dialog = new Nethesap.UI.Views.RefundDialog 
+             { 
+                 DataContext = vm,
+                 Owner = System.Windows.Application.Current.MainWindow 
+             };
+
+             if (dialog.ShowDialog() == true)
+             {
+                 var refundItems = vm.GetRefundItems();
+                 if (refundItems.Any())
+                 {
+                     await ProcessRefundAsync(fullSale.Id, refundItems);
+                 }
+             }
         }
 
-        private async void ProcessRefund(object obj)
+        private async Task ProcessRefundAsync(Guid saleId, List<PaymentItem> refundItems)
         {
             try
             {
-                if (SelectedSale == null) return;
-
-                // Tam iade mantığını çağıralım (SalesViewModel'deki gibi)
-                // Not: Şimdilik basitçe tüm satışı iade ediyoruz.
-                // Partial refund için daha karmaşık bir yapı gerekir (seçili ürünler vs.)
-                // Burada "Tam İade" yapacağız.
+                bool success = await _saleService.RefundSaleAsync(saleId, refundItems);
                 
-                bool result = await _saleService.RefundSaleAsync(SelectedSale.Id, SelectedSale.PaymentItems);
-                
-                if (result)
+                if (success)
                 {
                      MessageBox.Show("İade işlemi başarıyla tamamlandı.", "Başarılı", MessageBoxButton.OK, MessageBoxImage.Information);
-                     IsRefundDialogOpen = false;
                      await RefreshCustomerData();
                 }
                 else
@@ -465,11 +470,6 @@ namespace Nethesap.UI.ViewModels
             }
         }
 
-        private void CancelRefund(object obj)
-        {
-            IsRefundDialogOpen = false;
-            SelectedSale = null;
-        }
 
         // --- HELPER ---
 

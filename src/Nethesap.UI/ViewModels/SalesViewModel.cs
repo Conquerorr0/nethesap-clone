@@ -48,8 +48,6 @@ namespace Nethesap.UI.ViewModels
         private ICommand? _searchProductCommand;
         private ICommand? _selectProductCommand;
         private ICommand? _refundSaleCommand;
-        private ICommand? _processRefundCommand;
-        private ICommand? _cancelRefundCommand;
         private ICommand? _filterSalesCommand;
         private ICommand? _resetFilterCommand;
         private ICommand? _viewSaleDetailsCommand;
@@ -537,8 +535,7 @@ namespace Nethesap.UI.ViewModels
         public ICommand SearchProductCommand => _searchProductCommand ??= new RelayCommand(OpenProductSearch);
         public ICommand SelectProductCommand => _selectProductCommand ??= new RelayCommand<Product>(SelectProduct);
         public ICommand RefundSaleCommand => _refundSaleCommand ??= new RelayCommand<Payment>(OpenRefundDialog);
-        public ICommand ProcessRefundCommand => _processRefundCommand ??= new RelayCommand(ProcessRefund);
-        public ICommand CancelRefundCommand => _cancelRefundCommand ??= new RelayCommand(CancelRefund);
+
         public ICommand FilterSalesCommand => _filterSalesCommand ??= new RelayCommand(FilterSales);
         public ICommand ResetFilterCommand => _resetFilterCommand ??= new RelayCommand(ResetFilter);
         public ICommand ViewSaleDetailsCommand => _viewSaleDetailsCommand ??= new RelayCommand<Payment>(ViewSaleDetails);
@@ -790,6 +787,10 @@ namespace Nethesap.UI.ViewModels
                 
                 // Listeyi yenile
                 await RefreshSalesAsync();
+                
+                // Ürün stoklarını ve listesini yenile
+                await ProductsViewModel.Instance.RefreshDataAsync();
+                await RefreshProductDataAsync();
             }
             catch (Exception ex)
             {
@@ -879,6 +880,13 @@ namespace Nethesap.UI.ViewModels
                 var existingItem = CurrentSaleItems.FirstOrDefault(i => i.ProductId == SelectedProduct.Id);
                 if (existingItem != null)
                 {
+                    // Stok kontrolü (sepet toplamı için)
+                    if (existingItem.Quantity + Quantity > SelectedProduct.StockQuantity)
+                    {
+                        MessageBox.Show($"Stokta yeterli ürün bulunmamaktadır! (Mevcut Stok: {SelectedProduct.StockQuantity}, Sepetteki: {existingItem.Quantity})", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
                     // Update existing item
                     existingItem.Quantity += Quantity;
                     existingItem.TotalPrice = existingItem.UnitPrice * existingItem.Quantity;
@@ -1066,21 +1074,63 @@ namespace Nethesap.UI.ViewModels
             }
         }
 
-        private void OpenRefundDialog(Payment sale)
+        private async void OpenRefundDialog(Payment sale)
         {
             if (sale != null)
             {
-                SelectedSale = sale;
-                IsRefundDialogOpen = true;
+                // Detayları tam al (Items vs)
+                var fullSale = await _saleService.GetSaleDetailsAsync(sale.Id);
+                if (fullSale == null) return;
+                
+                var vm = new RefundDialogViewModel(fullSale);
+                var dialog = new Nethesap.UI.Views.RefundDialog 
+                { 
+                    DataContext = vm,
+                    Owner = System.Windows.Application.Current.MainWindow 
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    var refundItems = vm.GetRefundItems();
+                    if (refundItems.Any())
+                    {
+                        await ProcessRefundAsync(fullSale.Id, refundItems);
+                    }
+                }
             }
         }
 
-        private void CancelRefund(object obj)
+        private async Task ProcessRefundAsync(Guid saleId, List<PaymentItem> refundItems)
         {
-            IsRefundDialogOpen = false;
-            SelectedSale = null;
-            SelectedSaleItem = null;
+            try
+            {
+                IsLoading = true;
+                bool success = await _saleService.RefundSaleAsync(saleId, refundItems);
+                
+                if (success)
+                {
+                    MessageBox.Show("İade işlemi başarıyla tamamlandı.", "Başarılı", MessageBoxButton.OK, MessageBoxImage.Information);
+                    await RefreshSalesAsync();
+                    
+                    // Ürün stoklarını ve listesini yenile (iade edilen ürünler geri gelir)
+                    await ProductsViewModel.Instance.RefreshDataAsync();
+                    await RefreshProductDataAsync();
+                }
+                else
+                {
+                    MessageBox.Show("İade işlemi başarısız oldu.", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"İade işlemi sırasında hata: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
+
 
         private void CloseSaleDetails(object obj)
         {
@@ -1520,9 +1570,9 @@ namespace Nethesap.UI.ViewModels
                 else
                 {
                     // Sadece tarih filtresine göre satışları getir
-                    Sales = new ObservableCollection<Payment>(
-                        await _saleService.GetSalesByDateRangeAsync(StartDate, EndDate)
-                    );
+                    var sales = await _saleService.GetSalesByDateRangeAsync(StartDate, EndDate);
+                    // Tamamen iade edilenleri gizle (Kısmi iadeler görünür)
+                    Sales = new ObservableCollection<Payment>(sales.Where(p => !p.IsFullyRefunded));
                 }
             }
             catch (Exception ex)
@@ -1584,48 +1634,7 @@ namespace Nethesap.UI.ViewModels
             }
         }
 
-        private async void ProcessRefund(object obj)
-        {
-            try
-            {
-                IsLoading = true;
-                
-                if (SelectedSale == null || SelectedSaleItem == null)
-                {
-                    MessageBox.Show("Lütfen iade edilecek ürün seçin!", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
 
-                // İade edilecek ürünleri oluştur
-                var refundItems = new List<PaymentItem> { SelectedSaleItem };
-                
-                // İade işlemini gerçekleştir
-                bool success = await _saleService.RefundSaleAsync(SelectedSale.Id, refundItems);
-                
-                if (success)
-                {
-                    MessageBox.Show("İade işlemi başarıyla gerçekleştirildi.", "Başarılı", MessageBoxButton.OK, MessageBoxImage.Information);
-                    
-                    // Satış listesini yenile
-                    await RefreshSalesAsync();
-                    
-                    // İade formunu kapat
-                    IsRefundDialogOpen = false;
-                }
-                else
-                {
-                    MessageBox.Show("İade işlemi sırasında bir hata oluştu!", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"İade işlemi sırasında hata oluştu: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            finally
-            {
-                IsLoading = false;
-            }
-        }
 
         private void CalculateStatistics()
         {

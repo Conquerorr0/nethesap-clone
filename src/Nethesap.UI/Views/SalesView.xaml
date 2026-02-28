@@ -739,6 +739,25 @@
                                                   Binding="{Binding Quantity}"
                                                   Width="Auto"
                                                   ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
+
+                                <DataGridTemplateColumn Header="İade" Width="Auto">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding RefundedQuantity, StringFormat='{}{0} Adet'}" 
+                                                       Foreground="Red" FontWeight="Bold">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding RefundedQuantity}" Value="0">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                                   
                                 <DataGridTextColumn Header="Birim Fiyat" 
                                                   Binding="{Binding UnitPrice, StringFormat='{}{0:N2} TL'}"
