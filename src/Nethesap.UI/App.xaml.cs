@@ -13,6 +13,8 @@ using System.Linq;
 using System.Text;
 using System.Globalization;
 using System.Threading;
+using AutoUpdaterDotNET;
+
 
 namespace Nethesap.UI;
 
@@ -49,7 +51,13 @@ public partial class App : System.Windows.Application
 
         try
         {
+            // Güncelleme kontrolü başlat
+            AutoUpdater.Start("https://raw.githubusercontent.com/Conquerorr0/nethesap-clone/develop/update.xml");
+            AutoUpdater.ShowSkipButton = false;
+            AutoUpdater.ShowRemindLaterButton = true;
+
             base.OnStartup(e);
+
             
             // Veritabanını başlat
             InitializeDatabase();
